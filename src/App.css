@@ -154,15 +154,12 @@ body {
 
 .main-header h1 {
   margin: 0;
-  font-size: 28px; /* Leggermente più grande */
+  font-size: 28px;
   font-weight: 900;
   color: var(--text);
   letter-spacing: -1px;
-}
-
-/* Opzionale: un piccolo gradiente sul nome per renderlo "Premium" */
-.main-header h1 {
   background: linear-gradient(135deg, var(--text) 0%, var(--blue) 100%);
   -webkit-background-clip: text;
+  background-clip: text;
   -webkit-text-fill-color: transparent;
 }
