@@ -163,3 +163,327 @@ body {
   background-clip: text;
   -webkit-text-fill-color: transparent;
 }
+
+
+/* ==========================================================================
+   TRAIN CARD
+   ========================================================================== */
+
+.train-card {
+
+  position: relative;
+
+  overflow: hidden;
+
+  display: flex;
+
+  border-radius: 22px;
+
+  background: white;
+
+  margin-bottom: 18px;
+
+  box-shadow:
+    0 8px 24px rgba(0,0,0,0.08);
+
+  transition:
+    transform .2s ease,
+    box-shadow .2s ease;
+}
+
+.train-card:hover {
+
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 12px 30px rgba(0,0,0,0.12);
+}
+
+.train-card-accent {
+
+  width: 8px;
+}
+
+.train-card.nord .train-card-accent {
+
+  background:
+    linear-gradient(
+      180deg,
+      #2979ff,
+      #1565c0
+    );
+}
+
+.train-card.sud .train-card-accent {
+
+  background:
+    linear-gradient(
+      180deg,
+      #ef5350,
+      #c62828
+    );
+}
+
+.train-card-body {
+
+  flex: 1;
+
+  padding: 18px;
+}
+
+/* ==========================================================================
+   HEADER
+   ========================================================================== */
+
+.train-card-header {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  align-items: flex-start;
+
+  gap: 14px;
+}
+
+.train-top-row {
+
+  display: flex;
+
+  align-items: center;
+
+  gap: 10px;
+
+  margin-bottom: 6px;
+}
+
+.train-category {
+
+  background: #111827;
+
+  color: white;
+
+  padding: 4px 10px;
+
+  border-radius: 999px;
+
+  font-size: 12px;
+
+  font-weight: 700;
+}
+
+.train-number {
+
+  font-size: 20px;
+
+  font-weight: 800;
+
+  color: #111827;
+}
+
+.train-destination {
+
+  font-size: 19px;
+
+  font-weight: 700;
+
+  color: #1f2937;
+}
+
+.train-right {
+
+  display: flex;
+
+  flex-direction: column;
+
+  align-items: flex-end;
+
+  gap: 10px;
+}
+
+/* ==========================================================================
+   STATUS
+   ========================================================================== */
+
+.train-status {
+
+  font-size: 11px;
+
+  font-weight: 800;
+
+  padding: 6px 10px;
+
+  border-radius: 999px;
+}
+
+.train-status.incoming {
+
+  background: #ffebee;
+
+  color: #c62828;
+}
+
+.train-status.scheduled {
+
+  background: #e3f2fd;
+
+  color: #1565c0;
+}
+
+.train-status.passed {
+
+  background: #eeeeee;
+
+  color: #616161;
+}
+
+.direction-chip {
+
+  font-size: 12px;
+
+  font-weight: 700;
+
+  padding: 6px 10px;
+
+  border-radius: 999px;
+}
+
+.direction-chip.nord {
+
+  background: #e3f2fd;
+
+  color: #1565c0;
+}
+
+.direction-chip.sud {
+
+  background: #ffebee;
+
+  color: #c62828;
+}
+
+/* ==========================================================================
+   MID
+   ========================================================================== */
+
+.train-card-mid {
+
+  display: grid;
+
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 12px;
+
+  margin-top: 18px;
+}
+
+.train-info-box {
+
+  background: #f8fafc;
+
+  border-radius: 16px;
+
+  padding: 12px;
+}
+
+/* ==========================================================================
+   FOOTER
+   ========================================================================== */
+
+.train-card-footer {
+
+  display: flex;
+
+  justify-content: space-between;
+
+  gap: 12px;
+
+  margin-top: 16px;
+}
+
+.countdown-box,
+.confidence-box {
+
+  flex: 1;
+
+  background: #f8fafc;
+
+  border-radius: 16px;
+
+  padding: 12px;
+}
+
+/* ==========================================================================
+   TEXT
+   ========================================================================== */
+
+.mini-label {
+
+  display: block;
+
+  font-size: 11px;
+
+  font-weight: 700;
+
+  color: #6b7280;
+
+  margin-bottom: 6px;
+
+  letter-spacing: .5px;
+}
+
+.main-value,
+.branch-value,
+.countdown-value,
+.confidence-value {
+
+  font-size: 18px;
+
+  font-weight: 800;
+
+  color: #111827;
+}
+
+.delay-value {
+
+  font-size: 18px;
+
+  font-weight: 800;
+}
+
+.delay-value.late {
+
+  color: #d32f2f;
+}
+
+.delay-value.ontime {
+
+  color: #2e7d32;
+}
+
+/* ==========================================================================
+   MOBILE
+   ========================================================================== */
+
+@media (max-width: 768px) {
+
+  .train-card-mid {
+
+    grid-template-columns: 1fr;
+  }
+
+  .train-card-footer {
+
+    flex-direction: column;
+  }
+
+  .train-card-header {
+
+    flex-direction: column;
+  }
+
+  .train-right {
+
+    align-items: flex-start;
+  }
+}

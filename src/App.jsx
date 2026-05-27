@@ -15,6 +15,8 @@ import {
   predictCrossings
 } from './engine/predictionEngine';
 
+import TrainCard from './components/TrainCard';
+
 /* ============================================================================
  * CONFIG
  * ========================================================================== */
@@ -233,9 +235,17 @@ function App() {
       className={`pl-box ${pl.color}`}
     >
 
+      {/* =============================================================== */}
+      {/* TRAFFIC LIGHT */}
+      {/* =============================================================== */}
+
       <div className="traffic-light">
 
-        <div className={`lamp red ${pl.color === 'red' ? 'on' : ''}`}></div>
+        <div className={`lamp red ${
+          pl.color === 'red'
+            ? 'on'
+            : ''
+        }`}></div>
 
         <div className={`lamp yellow ${
           ['yellow', 'blue'].includes(pl.color)
@@ -254,6 +264,10 @@ function App() {
         }`}></div>
 
       </div>
+
+      {/* =============================================================== */}
+      {/* TEXT */}
+      {/* =============================================================== */}
 
       <div className="pl-text">
 
@@ -283,6 +297,7 @@ function App() {
         )}
 
       </div>
+
     </div>
   );
 
@@ -326,7 +341,15 @@ function App() {
               className="city-logo"
             />
 
-            <h1>Seveso PL Monitor</h1>
+            <div>
+
+              <h1>Seveso PL Monitor</h1>
+
+              <div className="subtitle">
+                Monitoraggio Passaggi a Livello
+              </div>
+
+            </div>
 
           </div>
 
@@ -393,11 +416,17 @@ function App() {
 
             <div className="view-content">
 
-              {/* LATO CESANO */}
+              {/* ===================================================== */}
+              {/* CESANO SIDE */}
+              {/* ===================================================== */}
 
               {crossings
                 .slice(0, 3)
                 .map(renderPL)}
+
+              {/* ===================================================== */}
+              {/* STATION */}
+              {/* ===================================================== */}
 
               <div className="station-divider">
 
@@ -411,7 +440,9 @@ function App() {
 
               </div>
 
-              {/* LATO MEDA */}
+              {/* ===================================================== */}
+              {/* MEDA SIDE */}
+              {/* ===================================================== */}
 
               {crossings
                 .slice(3)
@@ -454,86 +485,14 @@ function App() {
                   return ta - tb;
                 })
 
-                .map(t => (
+                .map(train => (
 
-                  <div
-                    key={t.uniqueKey || t.id}
-                    className={`train-tile ${
-                      t.direction === 'NORD'
-                        ? 'nord'
-                        : 'sud'
-                    }`}
-                  >
+                  <TrainCard
+                    key={train.uniqueKey || train.id}
+                    train={train}
+                    now={now}
+                  />
 
-                    <div className="tile-accent"></div>
-
-                    <div className="tile-body">
-
-                      <div className="tile-header">
-
-                        <div className="train-meta">
-
-                          <span className="train-cat">
-                            {t.category}
-                          </span>
-
-                          <span className="train-id">
-                            {t.id}
-                          </span>
-
-                        </div>
-
-                        <span className={`direction-badge ${
-                          t.direction.toLowerCase()
-                        }`}>
-
-                          {t.direction === 'NORD'
-                            ? '▲ NORD'
-                            : '▼ SUD'}
-
-                        </span>
-
-                      </div>
-
-                      <div className="tile-main">
-
-                        <div className="destination-group">
-
-                          <span className="label-tiny">
-                            DESTINAZIONE
-                          </span>
-
-                          <span className="destination-name">
-                            {t.destination}
-                          </span>
-
-                        </div>
-
-                        <div className="time-group">
-
-                          <span className="scheduled-time">
-                            {t.schedTime}
-                          </span>
-
-                          <span className={`delay-pill ${
-                            t.delay > 0
-                              ? 'late'
-                              : 'ontime'
-                          }`}>
-
-                            {t.delay > 0
-                              ? `+${t.delay}'`
-                              : 'OK'}
-
-                          </span>
-
-                        </div>
-
-                      </div>
-
-                    </div>
-
-                  </div>
                 ))}
 
             </div>
