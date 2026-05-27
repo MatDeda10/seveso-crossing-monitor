@@ -77,7 +77,8 @@ function App() {
         }
       });
 
-      const merged = intervals.sort((a,b) => a.start - b.start).reduce((acc, curr) => {
+      const sortedIntervals = intervals.sort((a,b) => a.start - b.start);
+      const merged = sortedIntervals.reduce((acc, curr) => {
         if (!acc.length) return [curr];
         let last = acc[acc.length-1];
         if (curr.start <= last.end + 8000) {
@@ -89,13 +90,30 @@ function App() {
       }, []);
 
       const active = merged.find(i => currentTime >= i.start && currentTime <= i.end);
-      let res = { ...pl, status: 'APERTO', color: 'green', conf: 100, reason: 'Circolazione fluida' };
+      const next = merged.find(i => i.start > currentTime);
 
-      if (isStale) res = { ...pl, status: 'INCERTO', color: 'gray', conf: 0, reason: 'Dati obsoleti' };
-      else if (active) {
-        if (currentTime >= active.closed) res = { ...pl, status: 'CHIUSO', color: 'red', conf: active.conf*100, reason: `Treno ${active.id}` };
-        else if (currentTime >= active.closing) res = { ...pl, status: 'IN CHIUSURA', color: 'yellow', conf: active.conf*100, reason: `Treno ${active.id}` };
-        else res = { ...pl, status: 'PREALLERTA', color: 'blue', conf: active.conf*100, reason: 'Treno imminente' };
+      let res = { ...pl, status: 'APERTO', color: 'green', conf: 100, reason: 'Circolazione fluida', timer: null };
+
+      if (isStale) {
+        res = { ...pl, status: 'INCERTO', color: 'gray', conf: 0, reason: 'Dati obsoleti', timer: null };
+      } else if (active) {
+        if (currentTime >= active.closed) {
+          const sec = Math.ceil((active.end - currentTime) / 1000);
+          res = { ...pl, status: 'CHIUSO', color: 'red', conf: active.conf*100, reason: `Treno ${active.id}`, timer: `Riapre tra ${sec}s` };
+        } else if (currentTime >= active.closing) {
+          const sec = Math.ceil((active.closed - currentTime) / 1000);
+          res = { ...pl, status: 'IN CHIUSURA', color: 'yellow', conf: active.conf*100, reason: `Treno ${active.id}`, timer: `Chiuso tra ${sec}s` };
+        } else {
+          const sec = Math.ceil((active.closing - currentTime) / 1000);
+          res = { ...pl, status: 'PREALLERTA', color: 'blue', conf: active.conf*100, reason: 'Treno imminente', timer: `Barriere giù tra ${sec}s` };
+        }
+      } else if (next) {
+        const secTotal = Math.ceil((next.closing - currentTime) / 1000);
+        if (secTotal < 600) { // Mostra countdown solo se mancano meno di 10 minuti
+          const m = Math.floor(secTotal / 60);
+          const s = secTotal % 60;
+          res.timer = `Chiude tra ${m > 0 ? `${m}m ` : ''}${s}s`;
+        }
       }
       return res;
     });
@@ -114,6 +132,7 @@ function App() {
         <div className="pl-title">{pl.name} <span className="conf-tag">{pl.conf.toFixed(0)}%</span></div>
         <div className="pl-status-label">{pl.status}</div>
         <div className="pl-area">{pl.reason}</div>
+        {pl.timer && <div className="pl-timer-badge">{pl.timer}</div>}
       </div>
     </div>
   );

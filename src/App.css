@@ -111,3 +111,30 @@ body {
 .log-time { font-weight: 700; margin-right: 6px; color: var(--blue); }
 
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+
+/* Stile per il countdown sotto il passaggio */
+.pl-timer-badge {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 4px 10px;
+  background: var(--text);
+  color: #fff;
+  border-radius: 8px;
+  font-size: 11px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+/* Colori dinamici del timer basati sullo stato */
+.pl-box.red .pl-timer-badge { background: var(--red); }
+.pl-box.yellow .pl-timer-badge { background: var(--yellow); color: #fff; }
+.pl-box.blue .pl-timer-badge { background: var(--blue); }
+.pl-box.green .pl-timer-badge { 
+  background: #f1f5f9; 
+  color: var(--text-sub); 
+  border: 1px solid var(--border);
+  box-shadow: none;
+}
