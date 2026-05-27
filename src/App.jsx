@@ -1,19 +1,9 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import { CROSSINGS_CONFIG, WINDOWS, BRANCHES } from './config/topology';
+import { normalizeTrains, isBranchCompatible } from './engine/predictionEngine';
 import './App.css';
 
 const STATION_ID = "S01925";
-const WINDOWS = { preAlert: 120, closing: 90, closed: 50, reopening: -30, end: -60 };
-
-// Configurazione Geografica Ordinata: Cesano -> Meda
-const CROSSINGS_CONFIG = [
-  { id: 'como', name: "Via Como (Cesano M.)", side: 'CESANO', offset: 120 },
-  { id: 'isonzo', name: "Corso Isonzo", side: 'CESANO', offset: 80 },
-  { id: 'manzoni', name: "Via Manzoni", side: 'CESANO', offset: 40 },
-  { id: 'montello', name: "Corso Montello", side: 'MEDA', offset: 30 },
-  { id: 'brennero', name: "Via Brennero", side: 'MEDA', offset: 60 },
-  { id: 'farga', name: "Via Farga", side: 'MEDA', offset: 90 },
-  { id: 'sancarlo', name: "Via San Carlo", side: 'MEDA', offset: 120 }
-];
 
 function App() {
   const [activeTab, setActiveTab] = useState('viabilita');
@@ -21,7 +11,6 @@ function App() {
   const [logs, setLogs] = useState([]);
   const [now, setNow] = useState(new Date());
 
-  // Clock ad alta precisione (1s) per predizione PL
   useEffect(() => {
     const timer = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(timer);
@@ -34,25 +23,15 @@ function App() {
 
   const fetchData = useCallback(async () => {
     const dateStr = new Date().toString().split(' (')[0];
-    const encodedDate = encodeURIComponent(dateStr);
-    
-    // Endpoint reale di Viaggiatreno
     const baseUrl = "http://www.viaggiatreno.it/infomobilita/resteasy/viaggiatreno";
-    
-    // Utilizzo di corsproxy.io per il bypass dei blocchi CORS su GitHub Pages
-    const getProxyUrl = (type) => `https://corsproxy.io/?${encodeURIComponent(`${baseUrl}/${type}/${STATION_ID}/${encodedDate}`)}`;
+    const getProxyUrl = (type) => `https://corsproxy.io/?${encodeURIComponent(`${baseUrl}/${type}/${STATION_ID}/${encodeURIComponent(dateStr)}`)}`;
 
     try {
-      const [resDep, resArr] = await Promise.all([
-        fetch(getProxyUrl('partenze')),
-        fetch(getProxyUrl('arrivi'))
-      ]);
-      
+      const [resDep, resArr] = await Promise.all([fetch(getProxyUrl('partenze')), fetch(getProxyUrl('arrivi'))]);
       const d = await resDep.json();
       const a = await resArr.json();
-      
       setData({ departures: d || [], arrivals: a || [], lastSync: Date.now() });
-      addLog("Sincronizzazione completata (via Proxy)", "success");
+      addLog("Sincronizzazione completata", "success");
     } catch (e) {
       addLog(`Errore Sync: ${e.message}`, "error");
     }
@@ -64,42 +43,21 @@ function App() {
     return () => clearInterval(interval);
   }, [fetchData]);
 
-  // ENGINE: Calcolo Stati PL e Lista Treni
   const { plStates, trainList } = useMemo(() => {
     const currentTime = now.getTime();
     const isStale = (currentTime - data.lastSync) > 95000;
-    
-    const trains = new Map();
-    const allRaw = [...data.arrivals.map(t => ({...t, type:'ARR'})), ...data.departures.map(t => ({...t, type:'DEP'}))];
-    
-    allRaw.forEach(t => {
-      if (t.provvedimento === 1) return;
-      const baseTs = t.orarioArrivo || t.orarioPartenza;
-      const realTs = new Date(baseTs).getTime() + ((t.ritardo || 0) * 60000);
-      const dest = (t.destinazione || t.origine || "").toUpperCase();
-      const dir = (dest.includes("ASSO") || dest.includes("CAMNAGO") || dest.includes("MARIANO") || dest.includes("MEDA")) ? "NORD" : "SUD";
-      
-      if (!trains.has(t.numeroTreno)) {
-        trains.set(t.numeroTreno, {
-          id: t.numeroTreno, cat: t.categoriaDescrizione || t.categoria, dir,
-          dest: t.destinazione || t.origine, delay: t.ritardo || 0,
-          arrivalTs: null, departureTs: null, schedTime: t.compOrarioArrivo || t.compOrarioPartenza
-        });
-      }
-      const entry = trains.get(t.numeroTreno);
-      if (t.type === 'ARR') entry.arrivalTs = realTs; else entry.departureTs = realTs;
-    });
-
-    const trainArray = Array.from(trains.values());
+    const trainArray = normalizeTrains(data.arrivals, data.departures);
 
     const states = CROSSINGS_CONFIG.map(pl => {
       let intervals = [];
       trainArray.forEach(t => {
+        if (!isBranchCompatible(t.routeBranch, pl.branch)) return;
+
         const speedFactor = t.cat.includes('S') ? 0.85 : 1.1;
         const offsetMs = pl.offset * speedFactor * 1000;
         let eventTs = null;
 
-        if (t.dir === "NORD") {
+        if (t.direction === "NORD") {
           if (t.arrivalTs && pl.side === 'CESANO') eventTs = t.arrivalTs - offsetMs;
           if (t.departureTs && pl.side === 'MEDA') eventTs = t.departureTs + offsetMs;
         } else {
@@ -137,7 +95,7 @@ function App() {
       else if (active) {
         if (currentTime >= active.closed) res = { ...pl, status: 'CHIUSO', color: 'red', conf: active.conf*100, reason: `Treno ${active.id}` };
         else if (currentTime >= active.closing) res = { ...pl, status: 'IN CHIUSURA', color: 'yellow', conf: active.conf*100, reason: `Treno ${active.id}` };
-        else if (currentTime >= active.start) res = { ...pl, status: 'PREALLERTA', color: 'blue', conf: active.conf*100, reason: 'Treno imminente' };
+        else res = { ...pl, status: 'PREALLERTA', color: 'blue', conf: active.conf*100, reason: 'Treno imminente' };
       }
       return res;
     });
@@ -145,11 +103,11 @@ function App() {
     return { plStates: states, trainList: trainArray };
   }, [data, now]);
 
-  const renderPLBox = (pl) => (
+  const renderPL = (pl) => (
     <div key={pl.id} className={`pl-box ${pl.color}`}>
       <div className="traffic-light">
         <div className={`lamp red ${pl.color === 'red' ? 'on' : ''}`}></div>
-        <div className={`lamp yellow ${pl.color === 'yellow' || pl.color === 'blue' ? 'on' : ''} ${pl.color === 'blue' ? 'blue-mode' : ''}`}></div>
+        <div className={`lamp yellow ${['yellow', 'blue'].includes(pl.color) ? 'on' : ''} ${pl.color === 'blue' ? 'blue-mode' : ''}`}></div>
         <div className={`lamp green ${pl.color === 'green' ? 'on' : ''}`}></div>
       </div>
       <div className="pl-text">
@@ -180,13 +138,13 @@ function App() {
         <main className="view-container">
           {activeTab === 'viabilita' && (
             <div className="view-content">
-              {plStates.slice(0, 3).map(renderPLBox)}
+              {plStates.slice(0, 3).map(renderPL)}
               <div className="station-divider">
                 <div className="divider-line"></div>
                 <div className="divider-label">STAZIONE SEVESO</div>
                 <div className="divider-line"></div>
               </div>
-              {plStates.slice(3, 7).map(renderPLBox)}
+              {plStates.slice(3).map(renderPL)}
             </div>
           )}
 
@@ -196,28 +154,17 @@ function App() {
                 .filter(t => (Math.max(t.arrivalTs, t.departureTs) - now.getTime()) / 60000 > -10)
                 .sort((a,b) => (a.arrivalTs || a.departureTs) - (b.arrivalTs || b.departureTs))
                 .map(t => (
-                  <div key={t.id} className={`train-tile ${t.dir === 'NORD' ? 'nord' : 'sud'}`}>
+                  <div key={t.id} className={`train-tile ${t.direction === 'NORD' ? 'nord' : 'sud'}`}>
                     <div className="tile-accent"></div>
                     <div className="tile-body">
                       <div className="tile-header">
-                        <div className="train-meta">
-                          <span className="train-cat">{t.cat}</span>
-                          <span className="train-id">{t.id}</span>
-                        </div>
-                        <span className={`direction-badge ${t.dir.toLowerCase()}`}>
-                          {t.dir === 'NORD' ? '▲ NORD' : '▼ SUD'}
-                        </span>
+                        <div className="train-meta"><span className="train-cat">{t.cat}</span><span className="train-id">{t.id}</span></div>
+                        <span className={`direction-badge ${t.direction.toLowerCase()}`}>{t.direction === 'NORD' ? '▲ NORD' : '▼ SUD'}</span>
                       </div>
                       <div className="tile-main">
-                        <div className="destination-group">
-                          <span className="label-tiny">DESTINAZIONE</span>
-                          <span className="destination-name">{t.dest}</span>
-                        </div>
-                        <div className="time-group">
-                          <span className="scheduled-time">{t.schedTime}</span>
-                          <span className={`delay-pill ${t.delay > 0 ? 'late' : 'ontime'}`}>
-                            {t.delay > 0 ? `+${t.delay}'` : 'OK'}
-                          </span>
+                        <div className="destination-group"><span className="label-tiny">DESTINAZIONE</span><span className="destination-name">{t.dest}</span></div>
+                        <div className="time-group"><span className="scheduled-time">{t.schedTime}</span>
+                          <span className={`delay-pill ${t.delay > 0 ? 'late' : 'ontime'}`}>{t.delay > 0 ? `+${t.delay}'` : 'OK'}</span>
                         </div>
                       </div>
                     </div>
@@ -229,9 +176,7 @@ function App() {
           {activeTab === 'logs' && (
             <div className="view-content log-page">
               {logs.map(l => (
-                <div key={l.id} className={`log-entry ${l.type}`}>
-                  <span className="log-time">{l.ts}</span> {l.msg}
-                </div>
+                <div key={l.id} className={`log-entry ${l.type}`}><span className="log-time">{l.ts}</span> {l.msg}</div>
               ))}
             </div>
           )}
