@@ -138,3 +138,31 @@ body {
   border: 1px solid var(--border);
   box-shadow: none;
 }
+
+.title-wrapper {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.city-logo {
+  width: 32px;
+  height: auto;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,0.1));
+}
+
+.main-header h1 {
+  margin: 0;
+  font-size: 28px; /* Leggermente più grande */
+  font-weight: 900;
+  color: var(--text);
+  letter-spacing: -1px;
+}
+
+/* Opzionale: un piccolo gradiente sul nome per renderlo "Premium" */
+.main-header h1 {
+  background: linear-gradient(135deg, var(--text) 0%, var(--blue) 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}

@@ -140,13 +140,23 @@ function App() {
   return (
     <div className="app-shell light-theme">
       <div className="app-card">
-        <header className="main-header">
-          <div className="status-bar">
-            <span className={`indicator ${Date.now() - data.lastSync < 95000 ? 'live' : 'stale'}`}></span>
-            <span className="station-label">SEVESO MONITOR • {now.toLocaleTimeString()}</span>
-          </div>
-          <h1>Monitor Stazione</h1>
-        </header>
+        // Cerca la parte dell'header nel return di App.jsx e sostituiscila così:
+
+<header className="main-header">
+  <div className="status-bar">
+    <span className={`indicator ${Date.now() - data.lastSync < 95000 ? 'live' : 'stale'}`}></span>
+    <span className="station-label">CONTROL UNIT • {now.toLocaleTimeString()}</span>
+  </div>
+  <div className="title-wrapper">
+    <img 
+      src="https://upload.wikimedia.org/wikipedia/commons/thumb/7/73/Seveso-Stemma.png/100px-Seveso-Stemma.png" 
+      alt="Stemma Seveso" 
+      className="city-logo"
+    />
+    <h1>Seveso PL Monitor</h1>
+  </div>
+</header>
+
 
         <nav className="tab-bar">
           <button className={activeTab === 'viabilita' ? 'active' : ''} onClick={() => setActiveTab('viabilita')}>Passaggi</button>
