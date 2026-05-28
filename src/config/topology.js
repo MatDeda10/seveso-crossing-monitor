@@ -1,3 +1,7 @@
+/* ============================================================================
+ * BRANCHES
+ * ========================================================================== */
+
 export const BRANCHES = Object.freeze({
 
   COMMON: 'COMMON',
@@ -10,164 +14,240 @@ export const BRANCHES = Object.freeze({
 });
 
 /* ============================================================================
- * WINDOWS
+ * GLOBAL WINDOWS
  * ========================================================================== */
 
 export const WINDOWS = Object.freeze({
 
   /*
-   * Treno molto lontano
+   * Sotto questo valore
+   * il PL entra in modalità imminente
    */
 
-  SAFE_OPEN: 240,
+  IMMINENT_THRESHOLD: 180,
 
   /*
-   * Possibile attivazione circuito PL
+   * Timeout massimo validità dati
    */
 
-  PRE_ALERT: 180,
+  STALE_SOFT: 45000,
+
+  STALE_HARD: 120000,
 
   /*
-   * Barriere probabilmente in movimento
+   * Merge intervalli ravvicinati
    */
 
-  CLOSING: 90,
+  MERGE_GAP_MS: 25000,
 
   /*
-   * PL quasi certamente chiuso
+   * Sicurezza extra riapertura
    */
 
-  CLOSED: 55,
-
-  /*
-   * Margine riapertura reale
-   */
-
-  REOPEN_BUFFER: 45
+  REOPEN_BUFFER_SEC: 35
 });
 
 /* ============================================================================
- * CATEGORY CONFIG
+ * TRAIN CATEGORY CONFIG
  * ========================================================================== */
 
 export const CATEGORY_CONFIG = Object.freeze({
 
   S: {
 
-    avgSpeedKmh: 42,
+    label: 'Suburbano',
 
-    uncertaintyFactor: 1.35
+    avgSpeedKmh: 45,
+
+    accelerationFactor: 0.82,
+
+    brakingFactor: 0.92,
+
+    uncertaintyFactor: 1.22
   },
 
   REG: {
 
-    avgSpeedKmh: 58,
+    label: 'Regionale',
 
-    uncertaintyFactor: 1.25
-  },
+    avgSpeedKmh: 62,
 
-  DIR: {
+    accelerationFactor: 0.9,
 
-    avgSpeedKmh: 82,
+    brakingFactor: 0.95,
 
     uncertaintyFactor: 1.15
   },
 
+  DIR: {
+
+    label: 'Diretto',
+
+    avgSpeedKmh: 85,
+
+    accelerationFactor: 0.96,
+
+    brakingFactor: 1,
+
+    uncertaintyFactor: 1.08
+  },
+
   default: {
+
+    label: 'Standard',
 
     avgSpeedKmh: 55,
 
-    uncertaintyFactor: 1.3
+    accelerationFactor: 0.88,
+
+    brakingFactor: 0.93,
+
+    uncertaintyFactor: 1.25
   }
 });
 
 /* ============================================================================
- * CROSSINGS
+ * CROSSINGS CONFIG
  * ========================================================================== */
 
 export const CROSSINGS_CONFIG = [
 
   {
     id: 'como',
+
     name: 'Via Como (Cesano M.)',
 
     branch: BRANCHES.COMMON,
+
     side: 'CESANO',
 
     distanceMeters: 950,
 
-    closureLeadSec: 75
+    /*
+     * Tempo medio reale
+     * anticipo chiusura PL
+     */
+
+    closureLeadSec: 78,
+
+    /*
+     * Tempo medio barriera giù
+     */
+
+    fullClosureSec: 52,
+
+    /*
+     * Buffer riapertura
+     */
+
+    reopenBufferSec: 42
   },
 
   {
     id: 'isonzo',
+
     name: 'Corso Isonzo',
 
     branch: BRANCHES.COMMON,
+
     side: 'CESANO',
 
     distanceMeters: 650,
 
-    closureLeadSec: 70
+    closureLeadSec: 70,
+
+    fullClosureSec: 48,
+
+    reopenBufferSec: 38
   },
 
   {
     id: 'manzoni',
+
     name: 'Via Manzoni',
 
     branch: BRANCHES.COMMON,
+
     side: 'CESANO',
 
     distanceMeters: 320,
 
-    closureLeadSec: 65
+    closureLeadSec: 62,
+
+    fullClosureSec: 44,
+
+    reopenBufferSec: 35
   },
 
   {
     id: 'montello',
+
     name: 'Corso Montello',
 
     branch: BRANCHES.COMMON,
+
     side: 'MEDA',
 
     distanceMeters: 280,
 
-    closureLeadSec: 60
+    closureLeadSec: 58,
+
+    fullClosureSec: 42,
+
+    reopenBufferSec: 34
   },
 
   {
     id: 'brennero',
+
     name: 'Via Brennero (Camnago)',
 
     branch: BRANCHES.CAMNAGO,
+
     side: 'MEDA',
 
     distanceMeters: 780,
 
-    closureLeadSec: 80
+    closureLeadSec: 82,
+
+    fullClosureSec: 55,
+
+    reopenBufferSec: 45
   },
 
   {
     id: 'farga',
+
     name: 'Via Farga (Asso)',
 
     branch: BRANCHES.ASSO,
+
     side: 'MEDA',
 
     distanceMeters: 1200,
 
-    closureLeadSec: 90
+    closureLeadSec: 96,
+
+    fullClosureSec: 60,
+
+    reopenBufferSec: 48
   },
 
   {
     id: 'sancarlo',
+
     name: 'Via San Carlo (Asso)',
 
     branch: BRANCHES.ASSO,
+
     side: 'MEDA',
 
     distanceMeters: 1700,
 
-    closureLeadSec: 100
+    closureLeadSec: 108,
+
+    fullClosureSec: 65,
+
+    reopenBufferSec: 52
   }
 ];
