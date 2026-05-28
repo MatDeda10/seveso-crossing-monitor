@@ -1,79 +1,274 @@
-import React from 'react';
+import React, {
+  useMemo
+} from 'react';
 
-const branchLabel = {
-  COMMON: 'TRONCO COMUNE',
-  BRENNERO: 'CAMNAGO',
-  FARGA: 'ASSO',
-  CESANO: 'CESANO',
-  UNKNOWN: 'SCONOSCIUTO'
+/* ============================================================================
+ * LABELS
+ * ========================================================================== */
+
+const BRANCH_LABELS = {
+
+  COMMON: 'Tronco Comune',
+
+  CAMNAGO: 'Camnago',
+
+  ASSO: 'Asso',
+
+  UNKNOWN: 'Da verificare'
 };
 
-const getRealtimeStatus = (train, now) => {
+const CATEGORY_LABELS = {
 
-  const ts =
-    train.arrivalTs ||
-    train.departureTs;
+  S: 'Suburbano',
+
+  REG: 'Regionale',
+
+  DIR: 'Diretto'
+};
+
+/* ============================================================================
+ * HELPERS
+ * ========================================================================== */
+
+const formatClock = ts => {
+
+  if (!ts) {
+    return '--:--';
+  }
+
+  return new Date(ts)
+    .toLocaleTimeString([], {
+
+      hour: '2-digit',
+
+      minute: '2-digit'
+    });
+};
+
+const formatCountdown = (
+  ts,
+  now
+) => {
+
+  if (!ts) {
+    return '--';
+  }
 
   const deltaSec =
-    Math.floor((ts - now.getTime()) / 1000);
-
-  // già passato
-  if (deltaSec < -60) {
-    return {
-      label: 'TRANSITATO',
-      className: 'passed'
-    };
-  }
-
-  // in arrivo
-  if (deltaSec <= 120) {
-    return {
-      label: 'IN ARRIVO',
-      className: 'incoming'
-    };
-  }
-
-  // prossimo
-  return {
-    label: 'PROGRAMMATO',
-    className: 'scheduled'
-  };
-};
-
-const formatCountdown = (ts, now) => {
-
-  const sec =
-    Math.max(
-      0,
-      Math.floor((ts - now.getTime()) / 1000)
+    Math.floor(
+      (ts - now.getTime()) / 1000
     );
 
+  if (deltaSec <= 0) {
+    return 'ORA';
+  }
+
   const m =
-    Math.floor(sec / 60);
+    Math.floor(deltaSec / 60);
 
   const s =
-    sec % 60;
+    deltaSec % 60;
 
   if (m <= 0) {
     return `${s}s`;
   }
 
-  return `${m}m ${s}s`;
+  if (m < 60) {
+    return `${m}m ${s}s`;
+  }
+
+  const h =
+    Math.floor(m / 60);
+
+  return `${h}h ${m % 60}m`;
 };
 
-function TrainCard({ train, now }) {
+const getRealtimeStatus = (
+  train,
+  now
+) => {
+
+  const ts =
+    train.arrivalTs ||
+    train.departureTs;
+
+  if (!ts) {
+
+    return {
+
+      label: 'NON DISPONIBILE',
+
+      className: 'unknown'
+    };
+  }
+
+  const deltaSec =
+    Math.floor(
+      (ts - now.getTime()) / 1000
+    );
+
+  /*
+   * già passato
+   */
+
+  if (deltaSec < -90) {
+
+    return {
+
+      label: 'TRANSITATO',
+
+      className: 'passed'
+    };
+  }
+
+  /*
+   * imminente
+   */
+
+  if (deltaSec <= 60) {
+
+    return {
+
+      label: 'IMMINENTE',
+
+      className: 'imminent'
+    };
+  }
+
+  /*
+   * in arrivo
+   */
+
+  if (deltaSec <= 240) {
+
+    return {
+
+      label: 'IN ARRIVO',
+
+      className: 'incoming'
+    };
+  }
+
+  /*
+   * regolare
+   */
+
+  return {
+
+    label: 'PROGRAMMATO',
+
+    className: 'scheduled'
+  };
+};
+
+const getDelayLabel = delay => {
+
+  if (!delay || delay <= 0) {
+
+    return {
+
+      label: 'IN ORARIO',
+
+      className: 'ontime'
+    };
+  }
+
+  if (delay <= 5) {
+
+    return {
+
+      label: `+${delay} min`,
+
+      className: 'minor'
+    };
+  }
+
+  if (delay <= 15) {
+
+    return {
+
+      label: `+${delay} min`,
+
+      className: 'medium'
+    };
+  }
+
+  return {
+
+    label: `+${delay} min`,
+
+    className: 'major'
+  };
+};
+
+const computeConfidence = train => {
+
+  let score = 100;
+
+  if (train.delay > 5) {
+    score -= 8;
+  }
+
+  if (train.delay > 10) {
+    score -= 12;
+  }
+
+  if (train.routeBranch === 'UNKNOWN') {
+    score -= 15;
+  }
+
+  return Math.max(40, score);
+};
+
+/* ============================================================================
+ * COMPONENT
+ * ========================================================================== */
+
+function TrainCard({
+
+  train,
+
+  now
+}) {
 
   const ts =
     train.arrivalTs ||
     train.departureTs;
 
   const realtime =
-    getRealtimeStatus(train, now);
+    useMemo(() => {
+
+      return getRealtimeStatus(
+        train,
+        now
+      );
+
+    }, [train, now]);
+
+  const delay =
+    useMemo(() => {
+
+      return getDelayLabel(
+        train.delay || 0
+      );
+
+    }, [train]);
+
+  const confidence =
+    useMemo(() => {
+
+      return computeConfidence(train);
+
+    }, [train]);
 
   return (
 
     <div
-      className={`train-card ${train.direction.toLowerCase()}`}
+      className={`
+        train-card
+        ${train.direction.toLowerCase()}
+        ${realtime.className}
+      `}
     >
 
       {/* ========================================================= */}
@@ -112,15 +307,30 @@ function TrainCard({ train, now }) {
               {train.destination}
             </div>
 
+            <div className="train-category-label">
+
+              {CATEGORY_LABELS[train.category] ||
+                'Servizio ferroviario'}
+
+            </div>
+
           </div>
 
           <div className="train-right">
 
-            <div className={`train-status ${realtime.className}`}>
+            <div className={`
+              train-status
+              ${realtime.className}
+            `}>
+
               {realtime.label}
+
             </div>
 
-            <div className={`direction-chip ${train.direction.toLowerCase()}`}>
+            <div className={`
+              direction-chip
+              ${train.direction.toLowerCase()}
+            `}>
 
               {train.direction === 'NORD'
                 ? '▲ NORD'
@@ -133,10 +343,12 @@ function TrainCard({ train, now }) {
         </div>
 
         {/* ===================================================== */}
-        {/* MID */}
+        {/* INFO GRID */}
         {/* ===================================================== */}
 
-        <div className="train-card-mid">
+        <div className="train-info-grid">
+
+          {/* ORARIO */}
 
           <div className="train-info-box">
 
@@ -145,10 +357,30 @@ function TrainCard({ train, now }) {
             </span>
 
             <span className="main-value">
-              {train.schedTime}
+
+              {formatClock(ts)}
+
             </span>
 
           </div>
+
+          {/* COUNTDOWN */}
+
+          <div className="train-info-box">
+
+            <span className="mini-label">
+              ETA
+            </span>
+
+            <span className="countdown-value">
+
+              {formatCountdown(ts, now)}
+
+            </span>
+
+          </div>
+
+          {/* RITARDO */}
 
           <div className="train-info-box">
 
@@ -156,19 +388,18 @@ function TrainCard({ train, now }) {
               RITARDO
             </span>
 
-            <span className={`delay-value ${
-              train.delayMin > 0
-                ? 'late'
-                : 'ontime'
-            }`}>
+            <span className={`
+              delay-value
+              ${delay.className}
+            `}>
 
-              {train.delayMin > 0
-                ? `+${train.delayMin}'`
-                : 'OK'}
+              {delay.label}
 
             </span>
 
           </div>
+
+          {/* RAMO */}
 
           <div className="train-info-box">
 
@@ -177,7 +408,9 @@ function TrainCard({ train, now }) {
             </span>
 
             <span className="branch-value">
-              {branchLabel[train.routeBranch]}
+
+              {BRANCH_LABELS[train.routeBranch]}
+
             </span>
 
           </div>
@@ -190,18 +423,6 @@ function TrainCard({ train, now }) {
 
         <div className="train-card-footer">
 
-          <div className="countdown-box">
-
-            <span className="mini-label">
-              TRANSITO
-            </span>
-
-            <span className="countdown-value">
-              {formatCountdown(ts, now)}
-            </span>
-
-          </div>
-
           <div className="confidence-box">
 
             <span className="mini-label">
@@ -209,8 +430,16 @@ function TrainCard({ train, now }) {
             </span>
 
             <span className="confidence-value">
-              {Math.round(train.confidence * 100)}%
+
+              {confidence}%
+
             </span>
+
+          </div>
+
+          <div className="train-meta">
+
+            realtime • viaggiatreno
 
           </div>
 
