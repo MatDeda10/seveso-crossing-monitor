@@ -9,44 +9,83 @@ export const BRANCHES = Object.freeze({
   UNKNOWN: 'UNKNOWN'
 });
 
+/* ============================================================================
+ * WINDOWS
+ * ========================================================================== */
+
 export const WINDOWS = Object.freeze({
 
-  PRE_ALERT: 120,
-  CLOSING: 90,
-  CLOSED: 50,
+  /*
+   * Treno molto lontano
+   */
 
-  REOPENING: -30,
-  END: -60
+  SAFE_OPEN: 240,
+
+  /*
+   * Possibile attivazione circuito PL
+   */
+
+  PRE_ALERT: 180,
+
+  /*
+   * Barriere probabilmente in movimento
+   */
+
+  CLOSING: 90,
+
+  /*
+   * PL quasi certamente chiuso
+   */
+
+  CLOSED: 55,
+
+  /*
+   * Margine riapertura reale
+   */
+
+  REOPEN_BUFFER: 45
 });
+
+/* ============================================================================
+ * CATEGORY CONFIG
+ * ========================================================================== */
 
 export const CATEGORY_CONFIG = Object.freeze({
 
   S: {
-    speedFactor: 0.85,
-    avgSpeedKmh: 45
+
+    avgSpeedKmh: 42,
+
+    uncertaintyFactor: 1.35
   },
 
   REG: {
-    speedFactor: 1.0,
-    avgSpeedKmh: 65
+
+    avgSpeedKmh: 58,
+
+    uncertaintyFactor: 1.25
   },
 
   DIR: {
-    speedFactor: 1.25,
-    avgSpeedKmh: 90
+
+    avgSpeedKmh: 82,
+
+    uncertaintyFactor: 1.15
   },
 
   default: {
-    speedFactor: 1.0,
-    avgSpeedKmh: 60
+
+    avgSpeedKmh: 55,
+
+    uncertaintyFactor: 1.3
   }
 });
 
-export const CROSSINGS_CONFIG = [
+/* ============================================================================
+ * CROSSINGS
+ * ========================================================================== */
 
-  // ------------------------------------------------------------------------
-  // TRONCO COMUNE
-  // ------------------------------------------------------------------------
+export const CROSSINGS_CONFIG = [
 
   {
     id: 'como',
@@ -55,7 +94,9 @@ export const CROSSINGS_CONFIG = [
     branch: BRANCHES.COMMON,
     side: 'CESANO',
 
-    distanceMeters: 950
+    distanceMeters: 950,
+
+    closureLeadSec: 75
   },
 
   {
@@ -65,7 +106,9 @@ export const CROSSINGS_CONFIG = [
     branch: BRANCHES.COMMON,
     side: 'CESANO',
 
-    distanceMeters: 650
+    distanceMeters: 650,
+
+    closureLeadSec: 70
   },
 
   {
@@ -75,7 +118,9 @@ export const CROSSINGS_CONFIG = [
     branch: BRANCHES.COMMON,
     side: 'CESANO',
 
-    distanceMeters: 320
+    distanceMeters: 320,
+
+    closureLeadSec: 65
   },
 
   {
@@ -85,12 +130,10 @@ export const CROSSINGS_CONFIG = [
     branch: BRANCHES.COMMON,
     side: 'MEDA',
 
-    distanceMeters: 280
-  },
+    distanceMeters: 280,
 
-  // ------------------------------------------------------------------------
-  // RAMO CAMNAGO
-  // ------------------------------------------------------------------------
+    closureLeadSec: 60
+  },
 
   {
     id: 'brennero',
@@ -99,12 +142,10 @@ export const CROSSINGS_CONFIG = [
     branch: BRANCHES.CAMNAGO,
     side: 'MEDA',
 
-    distanceMeters: 780
-  },
+    distanceMeters: 780,
 
-  // ------------------------------------------------------------------------
-  // RAMO ASSO
-  // ------------------------------------------------------------------------
+    closureLeadSec: 80
+  },
 
   {
     id: 'farga',
@@ -113,7 +154,9 @@ export const CROSSINGS_CONFIG = [
     branch: BRANCHES.ASSO,
     side: 'MEDA',
 
-    distanceMeters: 1200
+    distanceMeters: 1200,
+
+    closureLeadSec: 90
   },
 
   {
@@ -123,6 +166,8 @@ export const CROSSINGS_CONFIG = [
     branch: BRANCHES.ASSO,
     side: 'MEDA',
 
-    distanceMeters: 1700
+    distanceMeters: 1700,
+
+    closureLeadSec: 100
   }
 ];
