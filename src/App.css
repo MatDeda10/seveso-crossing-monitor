@@ -487,3 +487,32 @@ body {
     align-items: flex-start;
   }
 }
+
+/* ... (mantieni il resto del CSS) ... */
+
+/* Stile per la carta del treno passato */
+.train-card.passed {
+  opacity: 0.6;
+  filter: grayscale(0.4);
+  transform: scale(0.98);
+  border: 1px dashed var(--border);
+  box-shadow: none;
+}
+
+.train-card.passed:hover {
+  opacity: 0.9;
+  filter: none;
+  transform: scale(1);
+}
+
+/* Badge di stato specifico */
+.status-badge.passed {
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.status-badge.imminent {
+  background: #fef2f2;
+  color: #ef4444;
+  animation: pulse 1.5s infinite;
+}

@@ -141,3 +141,21 @@ export const computeConfidence = (train) => {
 
   return Math.max(40, score);
 };
+
+export const getRealtimeStatus = (train, now) => {
+  const ts = train.arrivalTs || train.departureTs;
+  if (!ts) return { label: 'N.D.', className: 'unknown' };
+
+  const deltaSec = Math.floor((ts - now.getTime()) / 1000);
+
+  if (deltaSec < -30) {
+    return { label: 'TRANSITATO', className: 'passed' };
+  }
+  if (deltaSec <= 60) {
+    return { label: 'IMMINENTE', className: 'imminent' };
+  }
+  if (deltaSec <= 300) {
+    return { label: 'IN ARRIVO', className: 'incoming' };
+  }
+  return { label: 'PROGRAMMATO', className: 'scheduled' };
+};
