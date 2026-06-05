@@ -9,12 +9,46 @@ import {
  * ========================================================================== */
 
 const normalizeStationName = (value = '') => {
-
   return String(value)
     .toUpperCase()
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
     .trim();
+};
+
+// Helper: Rilevare treni soppressi (C8 FIX)
+const isSuppressed = (train) => {
+  const suppressionCodes = [1, 2, 3];
+  if (suppressionCodes.includes(train.provvedimento)) {
+    return true;
+  }
+  if (train.status === 'SOPPRESSO' || train.status === 'CANCELLED') {
+    return true;
+  }
+  return false;
+};
+
+// Helper: Calcolare server lag (C4 FIX)
+const calculateServerLag = (arrivals, departures, lastSyncTs) => {
+  const now = Date.now();
+  const allTrains = [...arrivals, ...departures];
+  if (allTrains.length === 0) return 0;
+
+  const recentTrains = allTrains.filter(t => {
+    const ts = t.orarioArrivo || t.orarioPartenza;
+    const time = new Date(ts).getTime();
+    return (now - time) < 300000;
+  });
+
+  if (recentTrains.length === 0) return 0;
+
+  const avgRecentTime = recentTrains
+    .reduce((sum, t) => {
+      const ts = t.orarioArrivo || t.orarioPartenza;
+      return sum + new Date(ts).getTime();
+    }, 0) / recentTrains.length;
+
+  return Math.max(0, now - avgRecentTime - 5000);
 };
 
 /* ============================================================================
@@ -110,10 +144,18 @@ const resolveCategory = raw => {
 
 export const normalizeTrains = (
   arrivals = [],
-  departures = []
+  departures = [],
+  lastSyncTs = 0
 ) => {
 
   const map = new Map();
+
+  // C4 FIX: Calcolare server lag estimato
+  const serverLag = calculateServerLag(
+    arrivals,
+    departures,
+    lastSyncTs
+  );
 
   const raw = [
 
@@ -130,9 +172,10 @@ export const normalizeTrains = (
 
   raw.forEach(t => {
 
+    // C8 FIX: Verificare più codici di soppressione
     if (
-      t.provvedimento === 1 ||
-      !t.numeroTreno
+      !t.numeroTreno ||
+      isSuppressed(t)
     ) {
 
       return;
@@ -204,6 +247,10 @@ export const normalizeTrains = (
     if (t.type === 'DEP') {
       train.departureTs = realtimeTs;
     }
+
+    // C1, C7 FIX: Aggiungere metadata per tracking
+    train.uniqueKey = `${t.numeroTreno}_${baseTs}`;
+    train.mergedCount = 1;
   });
 
   return Array.from(map.values());
@@ -227,10 +274,6 @@ const calculateTravelMs = (
   const rawTravel =
     crossing.distanceMeters / speedMs;
 
-  /*
-   * Treni più lenti in uscita stazione
-   */
-
   const adjustedTravel =
     rawTravel /
     train.config.accelerationFactor;
@@ -244,7 +287,8 @@ const calculateTravelMs = (
 
 const computeEventTs = (
   train,
-  crossing
+  crossing,
+  serverLag = 0
 ) => {
 
   const travelMs =
@@ -253,6 +297,9 @@ const computeEventTs = (
       crossing
     );
 
+  // C4 FIX: Correggere per server lag
+  const lagMs = serverLag || 0;
+
   if (train.direction === 'NORD') {
 
     if (
@@ -260,7 +307,7 @@ const computeEventTs = (
       train.arrivalTs
     ) {
 
-      return train.arrivalTs - travelMs;
+      return train.arrivalTs - lagMs - travelMs;
     }
 
     if (
@@ -268,7 +315,7 @@ const computeEventTs = (
       train.departureTs
     ) {
 
-      return train.departureTs + travelMs;
+      return train.departureTs - lagMs + travelMs;
     }
   }
 
@@ -279,7 +326,7 @@ const computeEventTs = (
       train.arrivalTs
     ) {
 
-      return train.arrivalTs - travelMs;
+      return train.arrivalTs - lagMs - travelMs;
     }
 
     if (
@@ -287,7 +334,7 @@ const computeEventTs = (
       train.departureTs
     ) {
 
-      return train.departureTs + travelMs;
+      return train.departureTs - lagMs + travelMs;
     }
   }
 
@@ -316,6 +363,8 @@ const buildInterval = ({
 
     trainId: train.id,
 
+    trainIds: [train.id],
+
     start:
       eventTs - preAlertMs,
 
@@ -329,7 +378,10 @@ const buildInterval = ({
 
     end:
       eventTs +
-      (crossing.reopenBufferSec * 1000)
+      (crossing.reopenBufferSec * 1000),
+
+    // C1 FIX: Tracciare durata reale per merge logic
+    duration: (crossing.reopenBufferSec + crossing.fullClosureSec) * 1000
   };
 };
 
@@ -357,20 +409,40 @@ const mergeIntervals = intervals => {
     const current =
       sorted[i];
 
-    if (
-      current.start <=
-      last.end + WINDOWS.MERGE_GAP_MS
-    ) {
+    const gap = current.start - last.end;
 
-      last.end =
-        Math.max(last.end, current.end);
-
-      last.trainId =
-        `${last.trainId} + ${current.trainId}`;
-
-    } else {
-
+    // C1, C7 FIX: Gap logic migliorato
+    // Se gap > 60sec: definitely separate closures
+    if (gap > 60000) {
       merged.push(current);
+    }
+    // Se gap 10-60sec: evaluate intelligently
+    else if (gap > 10000) {
+      // Merge solo se non estende duration >150%
+      const potentialDuration = 
+        (current.end - last.start);
+      const actualDuration = 
+        (last.duration + current.duration);
+
+      if (potentialDuration < actualDuration * 1.5) {
+        last.end = Math.max(last.end, current.end);
+        last.trainIds = [
+          ...last.trainIds,
+          ...current.trainIds
+        ];
+        last.trainId = `${last.trainId}+${current.trainId}`;
+      } else {
+        merged.push(current);
+      }
+    }
+    // Se gap ≤ 10sec: always merge (treni immediati)
+    else {
+      last.end = Math.max(last.end, current.end);
+      last.trainIds = [
+        ...last.trainIds,
+        ...current.trainIds
+      ];
+      last.trainId = `${last.trainId}+${current.trainId}`;
     }
   }
 
@@ -378,29 +450,66 @@ const mergeIntervals = intervals => {
 };
 
 /* ============================================================================
- * CONFIDENCE
+ * CONFIDENCE (C9 FIX - Multi-factor scoring)
  * ========================================================================== */
 
 const computeConfidence = (
   syncAge,
-  delay
+  delay,
+  trainDistance = 5000,
+  mergedCount = 1
 ) => {
 
   let score = 100;
 
-  if (syncAge > WINDOWS.STALE_SOFT) {
+  // Factor 1: Sync Age (25pts impact)
+  if (syncAge < 10000) {
+    // Fresh: 0 penalty
+  } else if (syncAge < WINDOWS.STALE_SOFT) {
+    score -= 3;
+  } else if (syncAge < WINDOWS.STALE_HARD) {
+    score -= 12;
+  } else {
+    score -= 25;
+  }
+
+  // Factor 2: Delay Amount (20pts impact)
+  if (Math.abs(delay) <= 2) {
+    // On-time: 0 penalty
+  } else if (Math.abs(delay) <= 5) {
+    score -= 4;
+  } else if (Math.abs(delay) <= 10) {
+    score -= 10;
+  } else {
+    score -= 15;
+  }
+
+  // Factor 3: Train Distance (15pts impact)
+  // Closer trains = higher confidence
+  if (trainDistance < 2000) {
+    // Very close: 0 penalty
+  } else if (trainDistance < 5000) {
+    score -= 3;
+  } else if (trainDistance < 10000) {
+    score -= 8;
+  } else {
+    score -= 12;
+  }
+
+  // Factor 4: Merge Count (20pts impact)
+  // More merges = lower confidence
+  if (mergedCount <= 1) {
+    // Single train: 0 penalty
+  } else if (mergedCount <= 2) {
+    score -= 5;
+  } else if (mergedCount <= 3) {
+    score -= 12;
+  } else {
     score -= 18;
   }
 
-  if (delay > 5) {
-    score -= 8;
-  }
-
-  if (delay > 10) {
-    score -= 10;
-  }
-
-  return Math.max(35, score);
+  // Floor at 25% (was 35%)
+  return Math.max(25, score);
 };
 
 /* ============================================================================
@@ -424,8 +533,12 @@ export const predictCrossings = ({
   const trains =
     normalizeTrains(
       arrivals,
-      departures
+      departures,
+      lastSyncTs
     );
+
+  // C4 FIX: Calculate server lag once
+  const serverLag = calculateServerLag(trains);
 
   const results =
     crossings.map(crossing => {
@@ -447,7 +560,8 @@ export const predictCrossings = ({
         const eventTs =
           computeEventTs(
             train,
-            crossing
+            crossing,
+            serverLag
           );
 
         if (!eventTs) {
@@ -478,25 +592,38 @@ export const predictCrossings = ({
           i.start > currentTime
         );
 
+      // C3 FIX: Stale data handling
       if (
         syncAge >
         WINDOWS.STALE_HARD
       ) {
 
+        // Try to extrapolate from last known state
+        const lastState = active || next;
+
         return {
 
           ...crossing,
 
-          status: 'INCERTO',
+          status: lastState ? 'INCERTO' : 'APERTO',
 
-          color: 'gray',
+          color: 'orange',
 
           reason:
-            'Realtime non aggiornato',
+            'Realtime non aggiornato da ' +
+            Math.round(syncAge / 1000) +
+            's',
 
-          timer: null,
+          timer: lastState ? lastState.end : null,
 
-          confidence: 0
+          // C9: Confidence drops with staleness
+          confidence:
+            computeConfidence(
+              syncAge,
+              0,
+              5000,
+              1
+            )
         };
       }
 
@@ -522,7 +649,12 @@ export const predictCrossings = ({
             timer: null,
 
             confidence:
-              computeConfidence(syncAge, 0)
+              computeConfidence(
+                syncAge,
+                0,
+                50000,
+                1
+              )
           };
         }
 
@@ -554,7 +686,12 @@ export const predictCrossings = ({
               `Chiusura stimata tra ${Math.floor(sec / 60)}m`,
 
             confidence:
-              computeConfidence(syncAge, 0)
+              computeConfidence(
+                syncAge,
+                0,
+                next.trainIds ? next.trainIds.length * 2000 : 10000,
+                next.trainIds ? next.trainIds.length : 1
+              )
           };
         }
 
@@ -573,7 +710,12 @@ export const predictCrossings = ({
             `${sec}s alla possibile chiusura`,
 
           confidence:
-            computeConfidence(syncAge, 0) - 5
+            computeConfidence(
+              syncAge,
+              0,
+              next.trainIds ? next.trainIds.length * 2000 : 5000,
+              next.trainIds ? next.trainIds.length : 1
+            ) - 5
         };
       }
 
@@ -609,7 +751,12 @@ export const predictCrossings = ({
             `Riapertura stimata ${sec}s`,
 
           confidence:
-            computeConfidence(syncAge, 0)
+            computeConfidence(
+              syncAge,
+              0,
+              1000,
+              active.trainIds ? active.trainIds.length : 1
+            )
         };
       }
 
@@ -640,7 +787,12 @@ export const predictCrossings = ({
           `Barriere giù tra ${sec}s`,
 
         confidence:
-          computeConfidence(syncAge, 0) - 3
+          computeConfidence(
+            syncAge,
+            0,
+            500,
+            active.trainIds ? active.trainIds.length : 1
+          ) - 3
       };
     });
 
