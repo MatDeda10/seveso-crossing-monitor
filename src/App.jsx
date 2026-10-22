@@ -258,9 +258,13 @@ function App() {
 
           <p className="sync-line">
             <span className={`sync-dot ${indicatorClass}`} aria-hidden="true" />
-            {data.fetchedAt ? `Aggiornato ${formatRelative(data.fetchedAt, nowMs)}` : 'In attesa del primo dato'}
-            {data.transport ? ` · ${data.transport}` : ''}
-            {data.source === 'cache' ? ' · cache' : ''}
+            {data.source === 'timetable'
+              ? 'Orario ufficiale · senza ritardi in tempo reale'
+              : data.fetchedAt
+                ? `Aggiornato ${formatRelative(data.fetchedAt, nowMs)}`
+                : 'In attesa del primo dato'}
+            {data.source === 'cache' ? ' · ultimo dato salvato' : ''}
+            {data.source === 'network' && data.transport ? ` · ${data.transport}` : ''}
           </p>
         </header>
 

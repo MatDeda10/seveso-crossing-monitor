@@ -207,7 +207,7 @@ src/
     schedule.js                orario teorico di ripiego
     schedule.test.js           selezione del tipo di servizio e conversione orari
   hooks/                       useClock, useTrainData, useLogs
-  components/                  CrossingCard, TrainCard, Disclaimer
+  components/                  CrossingCard, TrainCard
   utils/timeFormat.js          formattazione e giudizi di stato
 public/schedule/               orario teorico (feriale/sabato/festivo)
 workers/viaggiatreno-proxy.js  proxy CORS per la produzione
