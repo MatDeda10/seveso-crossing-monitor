@@ -92,12 +92,18 @@ function App() {
       .filter((c) => !CLOSED_STATUSES.has(c.status) && c.closesInSec !== null)
       .sort((a, b) => a.closesInSec - b.closesInSec)[0];
 
+    const reopenAt = closed.reduce(
+      (latest, crossing) => (crossing.windowTo && (!latest || crossing.windowTo > latest) ? crossing.windowTo : latest),
+      null,
+    );
+
     return {
       closed: closed.length,
       alerting: alerting.length,
       unknown: unknown.length,
       open: open.length,
       nextClosing: nextClosing ?? null,
+      reopenAt,
     };
   }, [crossings]);
 
@@ -138,8 +144,8 @@ function App() {
       return {
         tone: 'danger',
         label: summary.closed === 1 ? '1 chiusura in corso' : `${summary.closed} chiusure in corso`,
-        hint: summary.nextClosing
-          ? `Prossima chiusura tra ${formatDuration(summary.nextClosing.closesInSec)}`
+        hint: summary.reopenAt
+          ? `Riapertura stimata verso le ${formatClock(summary.reopenAt)}`
           : 'Attendi la riapertura',
       };
     }
