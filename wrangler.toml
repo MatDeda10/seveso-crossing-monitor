@@ -1,0 +1,15 @@
+# Configurazione del proxy CORS su Cloudflare Workers.
+#
+# Serve al deploy automatico (`.github/workflows/deploy-worker.yml`) oppure al
+# deploy manuale con:
+#     npx wrangler deploy
+#
+# Il nome qui sotto determina l'URL pubblico:
+#     https://viaggiatreno-proxy.<tuo-sottodominio>.workers.dev
+
+name = "viaggiatreno-proxy"
+main = "workers/viaggiatreno-proxy.js"
+compatibility_date = "2025-01-01"
+
+# Espone il Worker su *.workers.dev (nessun dominio custom necessario).
+workers_dev = true

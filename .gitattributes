@@ -1,0 +1,10 @@
+# Normalizza i fine riga nel repository: LF nei file versionati, cosi' il
+# progetto non genera diff fittizi passando da Windows a Linux (o a CI).
+* text=auto eol=lf
+
+# I binari non vanno toccati.
+*.png binary
+*.jpg binary
+*.ico binary
+*.woff binary
+*.woff2 binary

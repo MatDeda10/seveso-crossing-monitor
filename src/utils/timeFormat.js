@@ -1,161 +1,102 @@
 /* ============================================================================
- * TIME FORMAT UTILITIES - Centralized
+ * FORMATTAZIONE DATE, COUNTDOWN E GIUDIZI DI STATO
+ * Ogni funzione qui dentro e' definita UNA SOLA VOLTA.
  * ========================================================================== */
 
-export const formatClock = (ts, options = {}) => {
-  if (!ts) {
-    return '--:--';
-  }
+import { WINDOWS } from '../config/windows';
 
-  const locale = options.locale || [];
-  const hour2digit = options.hour2digit !== false;
+const clockFormatter = new Intl.DateTimeFormat('it-IT', {
+  hour: '2-digit',
+  minute: '2-digit',
+  hour12: false,
+});
 
-  return new Date(ts).toLocaleTimeString(locale, {
-    hour: hour2digit ? '2-digit' : 'numeric',
-    minute: '2-digit'
-  });
+/** "12:34" — orario locale a due cifre. */
+export const formatClock = (ts) => (ts ? clockFormatter.format(new Date(ts)) : '--:--');
+
+/** "12:34–12:37" — intervallo orario (per mostrare l'incertezza della stima). */
+export const formatWindow = (fromTs, toTs) => {
+  if (!fromTs || !toTs) return '--:--';
+  if (Math.abs(toTs - fromTs) < 60_000) return formatClock(fromTs);
+  return `${formatClock(fromTs)}–${formatClock(toTs)}`;
 };
 
-export const formatCountdown = (ts, now) => {
-  if (!ts) {
-    return '--';
-  }
+/** "2m 05s", "45s", "ORA", "PASSATO". */
+export const formatCountdown = (ts, nowMs) => {
+  if (!ts) return '--';
 
-  const deltaSec = Math.floor((ts - now.getTime()) / 1000);
+  const deltaSec = Math.floor((ts - nowMs) / 1000);
 
-  // C12 FIX: Ridotto range da -90 a +60 a -30 a +60
-  if (deltaSec <= 0 && deltaSec > -30) {
-    return 'ORA';
-  }
+  if (deltaSec <= 0 && deltaSec > -WINDOWS.countdown.nowWindowSec) return 'ORA';
+  if (deltaSec <= -WINDOWS.countdown.pastAfterSec) return 'PASSATO';
 
-  if (deltaSec < -30) {
-    return 'PASSATO';
-  }
+  const absSec = Math.abs(deltaSec);
+  const m = Math.floor(absSec / 60);
+  const s = absSec % 60;
 
-  const m = Math.floor(deltaSec / 60);
-  const s = deltaSec % 60;
-
-  if (m <= 0) {
-    return `${s}s`;
-  }
-
-  if (m < 60) {
-    return `${m}m ${s}s`;
-  }
+  if (m <= 0) return `${s}s`;
+  if (m < 60) return `${m}m ${String(s).padStart(2, '0')}s`;
 
   const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
+  return `${h}h ${String(m % 60).padStart(2, '0')}m`;
 };
 
-export const getRealtimeStatus = (train, now) => {
-  const ts = train.arrivalTs || train.departureTs;
-
-  if (!ts) {
-    return {
-      label: 'NON DISPONIBILE',
-      className: 'unknown'
-    };
-  }
-
-  const deltaSec = Math.floor((ts - now.getTime()) / 1000);
-
-  if (deltaSec < -60) {
-    return {
-      label: 'TRANSITATO',
-      className: 'passed'
-    };
-  }
-
-  if (deltaSec <= 60) {
-    return {
-      label: 'IMMINENTE',
-      className: 'imminent'
-    };
-  }
-
-  if (deltaSec <= 240) {
-    return {
-      label: 'IN ARRIVO',
-      className: 'incoming'
-    };
-  }
-
-  return {
-    label: 'PROGRAMMATO',
-    className: 'scheduled'
-  };
+/** Durata da un numero di secondi: "1m 12s". */
+export const formatDuration = (totalSec) => {
+  if (totalSec === null || totalSec === undefined || Number.isNaN(totalSec)) return '--';
+  const sec = Math.max(0, Math.round(totalSec));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  if (m <= 0) return `${s}s`;
+  if (m < 60) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, '0')}m`;
 };
 
+/** "12s fa", "3m fa". */
+export const formatRelative = (ts, nowMs) => {
+  if (!ts) return 'mai';
+  const sec = Math.max(0, Math.round((nowMs - ts) / 1000));
+  if (sec < 60) return `${sec}s fa`;
+  if (sec < 3600) return `${Math.floor(sec / 60)}m fa`;
+  return `${Math.floor(sec / 3600)}h fa`;
+};
+
+/** Etichetta del ritardo. */
 export const getDelayLabel = (delay) => {
   const value = delay || 0;
 
-  // T1 FIX: Gestire anticipi (negativi)
-  if (value < -5) {
-    return {
-      label: `${value}min (ANTICIPO)`,
-      className: 'early'
-    };
-  }
-
-  if (value <= 0) {
-    return {
-      label: 'IN ORARIO',
-      className: 'ontime'
-    };
-  }
-
-  if (value <= 5) {
-    return {
-      label: `+${value}min`,
-      className: 'minor'
-    };
-  }
-
-  if (value <= 15) {
-    return {
-      label: `+${value}min`,
-      className: 'medium'
-    };
-  }
-
-  return {
-    label: `+${value}min`,
-    className: 'major'
-  };
+  if (value < -5) return { label: `${value} min (anticipo)`, className: 'early' };
+  if (value <= 0) return { label: 'In orario', className: 'ontime' };
+  if (value <= 5) return { label: `+${value} min`, className: 'minor' };
+  if (value <= 15) return { label: `+${value} min`, className: 'medium' };
+  return { label: `+${value} min`, className: 'major' };
 };
 
-export const computeConfidence = (train) => {
-  let score = 100;
-
-  if (train.delay > 5) {
-    score -= 8;
-  }
-
-  if (train.delay > 10) {
-    score -= 12;
-  }
-
-  if (train.routeBranch === 'UNKNOWN') {
-    score -= 15;
-  }
-
-  return Math.max(40, score);
-};
-
-export const getRealtimeStatus = (train, now) => {
-  const ts = train.arrivalTs || train.departureTs;
+/**
+ * Stato temporale di un evento ferroviario.
+ * @param {number|null} ts istante dell'evento
+ * @param {number} nowMs
+ */
+export const getRealtimeStatus = (ts, nowMs) => {
   if (!ts) return { label: 'N.D.', className: 'unknown' };
 
-  const deltaSec = Math.floor((ts - now.getTime()) / 1000);
+  const deltaSec = Math.floor((ts - nowMs) / 1000);
 
-  if (deltaSec < -30) {
-    return { label: 'TRANSITATO', className: 'passed' };
-  }
-  if (deltaSec <= 60) {
-    return { label: 'IMMINENTE', className: 'imminent' };
-  }
-  if (deltaSec <= 300) {
-    return { label: 'IN ARRIVO', className: 'incoming' };
-  }
+  if (deltaSec < -WINDOWS.countdown.pastAfterSec) return { label: 'TRANSITATO', className: 'passed' };
+  if (deltaSec <= WINDOWS.realtime.imminentSec) return { label: 'IMMINENTE', className: 'imminent' };
+  if (deltaSec <= WINDOWS.realtime.incomingSec) return { label: 'IN ARRIVO', className: 'incoming' };
   return { label: 'PROGRAMMATO', className: 'scheduled' };
+};
+
+/**
+ * Attendibilita' dell'orario di un treno (0-100), con fattori espliciti.
+ * Non e' una probabilita': e' solo una sintesi leggibile dei segnali disponibili.
+ */
+export const computeScheduleConfidence = (train) => {
+  let score = 100;
+  if (train.delay > 5) score -= 8;
+  if (train.delay > 10) score -= 14;
+  if (train.routeBranch === 'UNKNOWN' || train.direction === 'UNKNOWN') score -= 18;
+  if (!train.destination) score -= 10;
+  return Math.max(30, Math.min(100, Math.round(score)));
 };

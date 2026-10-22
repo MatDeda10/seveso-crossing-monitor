@@ -1,0 +1,20 @@
+{
+  "name": "Seveso PL Monitor — Passaggi a livello",
+  "short_name": "Seveso PL",
+  "description": "Stima non ufficiale di apertura e chiusura dei passaggi a livello di Seveso.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f172a",
+  "theme_color": "#0f172a",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

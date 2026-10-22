@@ -1,0 +1,68 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Lint, test e build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run test
+        env:
+          # Facoltativo: senza proxy il build funziona comunque, i test non toccano la rete.
+          VITE_PROXY_URL: ${{ secrets.VITE_PROXY_URL }}
+      - run: npm run build
+        env:
+          VITE_PROXY_URL: ${{ secrets.VITE_PROXY_URL }}
+
+  # Il deploy tramite GitHub Actions e' OPZIONALE e disattivato di default:
+  # il progetto continua a pubblicare con `npm run deploy` (branch gh-pages)
+  # esattamente come prima, senza toccare le impostazioni del repository.
+  #
+  # Per passare al deploy automatico:
+  #  1. Settings -> Pages -> Source: "GitHub Actions"
+  #  2. Settings -> Secrets and variables -> Actions -> Variables:
+  #     crea PAGES_VIA_ACTIONS = true
+  deploy:
+    name: Deploy su GitHub Pages (opzionale)
+    needs: verify
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && vars.PAGES_VIA_ACTIONS == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: pages
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+        env:
+          VITE_PROXY_URL: ${{ secrets.VITE_PROXY_URL }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -1,101 +1,92 @@
-import React, { useMemo } from 'react';
-import { 
-  formatClock, 
-  formatCountdown, 
-  getDelayLabel, 
+import { useMemo } from 'react';
+import { BRANCH_LABELS } from '../config/topology';
+import {
+  computeScheduleConfidence,
+  formatClock,
+  formatCountdown,
+  getDelayLabel,
   getRealtimeStatus,
-  computeConfidence 
 } from '../utils/timeFormat';
 
-// Mappa per i nomi dei rami
-const BRANCH_LABELS = {
-  COMMON: 'Tronco Comune',
-  CAMNAGO: 'S4 Camnago',
-  ASSO: 'S2 Asso',
-  UNKNOWN: 'Da verificare'
-};
+const BRANCH_FALLBACK = 'Tronco comune';
 
-function TrainCard({ train, now }) {
-  const ts = train.arrivalTs || train.departureTs;
-  
-  // Calcolo dati arricchiti
+const TrainCard = ({ train, nowMs }) => {
+  // `stationTs` e' l'istante in cui il treno e' a Seveso (arrivo o transito).
+  const ts = train.stationTs;
+
   const delayInfo = useMemo(() => getDelayLabel(train.delay), [train.delay]);
-  const statusInfo = useMemo(() => getRealtimeStatus(train, now), [train, now]);
-  const confidence = useMemo(() => computeConfidence(train), [train]);
+  const statusInfo = useMemo(() => getRealtimeStatus(ts, nowMs), [ts, nowMs]);
+  const confidence = useMemo(() => computeScheduleConfidence(train), [train]);
+
+  const directionClass = train.direction === 'NORD' ? 'nord' : train.direction === 'SUD' ? 'sud' : 'unknown';
 
   return (
-    <div className={`train-card ${train.direction.toLowerCase()} ${statusInfo.className}`}>
-      {/* Accento laterale colorato (Blu per Nord, Rosso per Sud) */}
-      <div className="train-card-accent"></div>
-      
+    <article className={`train-card ${directionClass} ${statusInfo.className}`}>
+      <div className="train-card-accent" />
+
       <div className="train-card-body">
-        {/* HEADER: Numero e Destinazione */}
-        <div className="train-card-header">
+        <header className="train-card-header">
           <div className="train-left">
             <div className="train-top-row">
               <span className="train-category">{train.category}</span>
               <span className="train-number">#{train.id}</span>
             </div>
-            <div className="train-destination">{train.destination}</div>
+            <p className="train-destination">{train.destination ?? 'Destinazione non nota'}</p>
+            <p className="train-origin">da {train.origin ?? 'origine non nota'}</p>
           </div>
-          
-          <div className="train-right">
-            <div className={`status-badge ${statusInfo.className}`}>
-              {statusInfo.label}
-            </div>
-            <div className={`direction-chip ${train.direction.toLowerCase()}`}>
-              {train.direction === 'NORD' ? '▲ NORD' : '▼ SUD'}
-            </div>
-          </div>
-        </div>
 
-        {/* GRID: Informazioni tecniche */}
+          <div className="train-right">
+            <span className={`status-badge ${statusInfo.className}`}>{statusInfo.label}</span>
+            <span className={`direction-chip ${directionClass}`}>
+              {train.direction === 'NORD'
+                ? '▲ NORD'
+                : train.direction === 'SUD'
+                  ? '▼ SUD'
+                  : '? DIREZIONE'}
+            </span>
+          </div>
+        </header>
+
         <div className="train-card-mid">
           <div className="train-info-box">
-            <span className="mini-label">ORARIO</span>
+            <span className="mini-label">{train.stopsAtStation ? 'FERMATA' : 'TRANSITO'}</span>
             <span className="main-value">{formatClock(ts)}</span>
           </div>
-          
+
           <div className="train-info-box">
-            <span className="mini-label">ETA</span>
-            <span className="countdown-value">{formatCountdown(ts, now)}</span>
+            <span className="mini-label">FRA</span>
+            <span className="countdown-value">{formatCountdown(ts, nowMs)}</span>
           </div>
 
           <div className="train-info-box">
             <span className="mini-label">RITARDO</span>
-            <span className={`delay-value ${delayInfo.className}`}>
-              {delayInfo.label}
-            </span>
+            <span className={`delay-value ${delayInfo.className}`}>{delayInfo.label}</span>
           </div>
 
           <div className="train-info-box">
             <span className="mini-label">RAMO</span>
-            <span className="branch-value">{BRANCH_LABELS[train.routeBranch] || 'Comune'}</span>
+            <span className="branch-value">{BRANCH_LABELS[train.routeBranch] ?? BRANCH_FALLBACK}</span>
           </div>
         </div>
 
-        {/* FOOTER: Affidabilità e Sorgente */}
-        <div className="train-card-footer">
+        <footer className="train-card-footer">
           <div className="confidence-section">
             <div className="confidence-header">
-              <span className="mini-label">AFFIDABILITÀ STIMA</span>
+              <span className="mini-label">AFFIDABILITÀ ORARIO</span>
               <span className="confidence-percent">{confidence}%</span>
             </div>
             <div className="confidence-bar-container">
-              <div 
-                className="confidence-bar-fill" 
-                style={{ 
-                  width: `${confidence}%`,
-                  backgroundColor: confidence > 80 ? '#22c55e' : confidence > 50 ? '#eab308' : '#ef4444'
-                }}
-              ></div>
+              <div
+                className={`confidence-bar-fill ${confidence >= 80 ? 'good' : confidence >= 55 ? 'warn' : 'bad'}`}
+                style={{ width: `${confidence}%` }}
+              />
             </div>
           </div>
-          <div className="data-source">realtime • viaggiatreno</div>
-        </div>
+          <span className="data-source">{train.categoryLabel}</span>
+        </footer>
       </div>
-    </div>
+    </article>
   );
-}
+};
 
 export default TrainCard;

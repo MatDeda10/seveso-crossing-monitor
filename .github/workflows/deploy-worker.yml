@@ -1,0 +1,55 @@
+name: Deploy proxy (opzionale)
+
+# Pubblica il Worker Cloudflare che fa da proxy CORS verso Viaggiatreno.
+#
+# E' DISATTIVATO di default: parte solo se esiste la variabile di repository
+# WORKER_DEPLOY = true (Settings -> Secrets and variables -> Actions -> Variables).
+#
+# Prima di attivarlo servono due secret (Settings -> ... -> Secrets):
+#   CLOUDFLARE_API_TOKEN   token con permesso "Workers Scripts: Edit"
+#   CLOUDFLARE_ACCOUNT_ID  ID dell'account Cloudflare
+#
+# Dopo il primo deploy, copia l'URL mostrato nel riepilogo del job (es.
+# https://viaggiatreno-proxy.<sottodominio>.workers.dev) nel secret
+# VITE_PROXY_URL: da quel momento il sito pubblicato legge i dati live.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'workers/**'
+      - 'wrangler.toml'
+      - '.github/workflows/deploy-worker.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  deploy-worker:
+    name: Deploy del Worker Cloudflare
+    if: vars.WORKER_DEPLOY == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Pubblica il Worker
+        id: deploy
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: deploy
+
+      - name: Riepilogo
+        run: |
+          {
+            echo "### Proxy pubblicato"
+            echo ""
+            echo "Copia l'URL qui sotto nel secret **VITE_PROXY_URL**"
+            echo "(Settings -> Secrets and variables -> Actions -> Secrets)."
+            echo ""
+            echo '```'
+            echo "${{ steps.deploy.outputs.command-output }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

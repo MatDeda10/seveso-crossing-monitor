@@ -2,13 +2,23 @@
   "name": "seveso-monitor",
   "homepage": "https://MatDeda10.github.io/seveso-crossing-monitor",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "vite",
+    "dev:all": "node tools/dev-all.mjs",
+    "dev:proxy": "node tools/dev-proxy.mjs",
+    "schedule:update": "node tools/build-schedule.mjs",
     "build": "vite build",
-    "lint": "eslint .",
     "preview": "vite preview",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "predeploy": "npm run build",
     "deploy": "gh-pages -d dist"
   },
@@ -17,8 +27,16 @@
     "react-dom": "^19.2.6"
   },
   "devDependencies": {
+    "@eslint/js": "^9.39.1",
     "@vitejs/plugin-react": "^6.0.1",
+    "eslint": "^9.39.1",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "eslint-plugin-react-refresh": "^0.4.24",
     "gh-pages": "^6.3.0",
-    "vite": "^8.0.12"
+    "globals": "^16.5.0",
+    "prettier": "^3.6.2",
+    "vite": "^8.0.12",
+    "vitest": "^3.2.4"
   }
 }
