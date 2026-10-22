@@ -16,8 +16,9 @@ const confidenceClass = (confidence) => {
   return 'low';
 };
 
-const CrossingCard = ({ crossing }) => {
+const CrossingCard = ({ crossing, onSelect, isSelected = false }) => {
   const {
+    id,
     name,
     locality,
     status,
@@ -29,6 +30,7 @@ const CrossingCard = ({ crossing }) => {
     windowFrom,
     windowTo,
     isUncertain,
+    verification,
   } = crossing;
 
   const isClosingNow = status === 'CHIUSO' || status === 'IN CHIUSURA';
@@ -38,7 +40,12 @@ const CrossingCard = ({ crossing }) => {
   const showUncertaintyBadge = isUncertain && (isClosingNow || status === 'PREALLERTA');
 
   return (
-    <article className={`crossing-card tone-${color}`}>
+    <button
+      type="button"
+      className={`crossing-card tone-${color} ${isSelected ? 'is-selected' : ''}`}
+      onClick={() => onSelect?.(id)}
+      aria-label={`${name}, ${status}${verification === 'estimated' ? ', posizione stimata' : ''}`}
+    >
       <TrafficLight color={color} />
 
       <div className="cc-content">
@@ -74,6 +81,8 @@ const CrossingCard = ({ crossing }) => {
             )}
 
             {showUncertaintyBadge && <span className="cc-uncertain">percorso da verificare</span>}
+
+            {verification === 'estimated' && <span className="cc-estimated">posizione stimata</span>}
           </div>
 
           <span
@@ -84,7 +93,7 @@ const CrossingCard = ({ crossing }) => {
           </span>
         </div>
       </div>
-    </article>
+    </button>
   );
 };
 

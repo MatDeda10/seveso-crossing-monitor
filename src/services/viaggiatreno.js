@@ -136,6 +136,30 @@ const writeCache = (payload) => {
 };
 
 /**
+ * Ultimo dato salvato, disponibile SUBITO all'avvio.
+ *
+ * Serve a non mostrare una schermata vuota mentre i proxy rispondono (o vanno
+ * in timeout). Il dato resta marcato come `cache`, quindi l'interfaccia dichiara
+ * che non e' appena arrivato. Se e' piu' vecchio di `staleHardMs` viene
+ * scartato: sarebbe comunque `OFFLINE` per l'engine.
+ */
+export const readCachedTrainData = (nowMs = Date.now()) => {
+  const cached = readCache();
+  if (!cached) return null;
+  if (nowMs - (cached.fetchedAt ?? 0) > WINDOWS.staleHardMs) return null;
+
+  return {
+    arrivals: cached.arrivals ?? [],
+    departures: cached.departures ?? [],
+    fetchedAt: cached.fetchedAt ?? 0,
+    source: 'cache',
+    transport: null,
+    dataState: 'cached',
+    error: null,
+  };
+};
+
+/**
  * Scarica arrivi e partenze.
  *
  * Ordine di ripiego quando la rete non risponde:

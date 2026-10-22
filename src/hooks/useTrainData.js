@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { RUNTIME } from '../config/runtime';
-import { fetchTrainData } from '../services/viaggiatreno';
+import { fetchTrainData, readCachedTrainData } from '../services/viaggiatreno';
 
 const EMPTY = {
   arrivals: [],
@@ -18,7 +18,9 @@ const EMPTY = {
  * mette in pausa il polling quando la scheda non e' visibile.
  */
 export const useTrainData = ({ addLog }) => {
-  const [data, setData] = useState(EMPTY);
+  // Se c'e' un dato salvato recente parte subito da quello: il primo render
+  // mostra l'ultimo stato noto invece di una schermata vuota.
+  const [data, setData] = useState(() => readCachedTrainData() ?? EMPTY);
   const inFlightRef = useRef(false);
   const lastSuccessRef = useRef(0);
 

@@ -11,7 +11,7 @@ export const VIAGGIATRENO_BASE = 'https://www.viaggiatreno.it/infomobilita/reste
 const RUNTIME_TIMEOUT_MS = 8_000;
 
 /** Timeout per i proxy pubblici: se sono lenti, meglio passare al successivo. */
-const PUBLIC_PROXY_TIMEOUT_MS = 9_000;
+const PUBLIC_PROXY_TIMEOUT_MS = 6_000;
 
 /**
  * Template del proxy configurato dall'utente.
