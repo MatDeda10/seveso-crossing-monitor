@@ -10,6 +10,8 @@ import {
 
 const BRANCH_FALLBACK = 'Tronco comune';
 
+const DIRECTION_LABEL = { NORD: 'NORD', SUD: 'SUD' };
+
 const TrainCard = ({ train, nowMs }) => {
   // `stationTs` e' l'istante in cui il treno e' a Seveso (arrivo o transito).
   const ts = train.stationTs;
@@ -18,11 +20,13 @@ const TrainCard = ({ train, nowMs }) => {
   const statusInfo = useMemo(() => getRealtimeStatus(ts, nowMs), [ts, nowMs]);
   const confidence = useMemo(() => computeScheduleConfidence(train), [train]);
 
-  const directionClass = train.direction === 'NORD' ? 'nord' : train.direction === 'SUD' ? 'sud' : 'unknown';
+  const directionClass = DIRECTION_LABEL[train.direction]
+    ? train.direction.toLowerCase()
+    : 'unknown';
 
   return (
     <article className={`train-card ${directionClass} ${statusInfo.className}`}>
-      <div className="train-card-accent" />
+      <div className="train-card-accent" aria-hidden="true" />
 
       <div className="train-card-body">
         <header className="train-card-header">
@@ -30,32 +34,26 @@ const TrainCard = ({ train, nowMs }) => {
             <div className="train-top-row">
               <span className="train-category">{train.category}</span>
               <span className="train-number">#{train.id}</span>
+              <span className={`direction-chip ${directionClass}`}>
+                {DIRECTION_LABEL[train.direction] ?? '?'}
+              </span>
             </div>
             <p className="train-destination">{train.destination ?? 'Destinazione non nota'}</p>
             <p className="train-origin">da {train.origin ?? 'origine non nota'}</p>
           </div>
 
-          <div className="train-right">
-            <span className={`status-badge ${statusInfo.className}`}>{statusInfo.label}</span>
-            <span className={`direction-chip ${directionClass}`}>
-              {train.direction === 'NORD'
-                ? '▲ NORD'
-                : train.direction === 'SUD'
-                  ? '▼ SUD'
-                  : '? DIREZIONE'}
-            </span>
-          </div>
+          <span className={`status-badge ${statusInfo.className}`}>{statusInfo.label}</span>
         </header>
 
         <div className="train-card-mid">
-          <div className="train-info-box">
-            <span className="mini-label">{train.stopsAtStation ? 'FERMATA' : 'TRANSITO'}</span>
-            <span className="main-value">{formatClock(ts)}</span>
+          <div className="train-info-box emphasis">
+            <span className="mini-label">FRA</span>
+            <span className="countdown-value">{formatCountdown(ts, nowMs)}</span>
           </div>
 
           <div className="train-info-box">
-            <span className="mini-label">FRA</span>
-            <span className="countdown-value">{formatCountdown(ts, nowMs)}</span>
+            <span className="mini-label">{train.stopsAtStation ? 'FERMATA' : 'TRANSITO'}</span>
+            <span className="main-value">{formatClock(ts)}</span>
           </div>
 
           <div className="train-info-box">

@@ -1,46 +1,59 @@
 /* ============================================================================
  * RESET + DESIGN TOKENS
  * Qui solo variabili e regole di base: i componenti stanno in App.css.
- * (Prima questo file conteneva il CSS del template Vite, che ridefiniva
- *  --bg/--text/--border in conflitto con App.css e imponeva a #root
- *  width 1126px e text-align center.)
  * ========================================================================== */
 
 :root {
-  --bg: #f1f5f9;
+  --bg: #eef2f9;
+  --bg-glow: #dde7f7;
   --card: #ffffff;
-  --surface: #f8fafc;
-  --text: #0f172a;
-  --text-sub: #64748b;
-  --border: #e2e8f0;
+  --surface: #f5f8fd;
+  --surface-strong: #eaf0f9;
+  --text: #0b1526;
+  --text-sub: #5f6f86;
+  --border: #e3eaf4;
+  --border-strong: #cfdaea;
 
   --blue: #2563eb;
   --red: #dc2626;
-  --yellow: #ca8a04;
-  --green: #16a34a;
+  --yellow: #d97706;
+  --green: #059669;
   --gray: #94a3b8;
 
+  --tone-danger: #e11d48;
+  --tone-warning: #d97706;
+  --tone-info: #2563eb;
+  --tone-ok: #059669;
+
+  --radius-xl: 26px;
   --radius-lg: 20px;
   --radius-md: 16px;
-  --radius-sm: 10px;
+  --radius-sm: 11px;
 
-  --shadow-card: 0 4px 20px rgba(15, 23, 42, 0.08);
+  --shadow-card: 0 24px 60px -34px rgba(11, 21, 38, 0.55);
+  --shadow-soft: 0 10px 24px -18px rgba(11, 21, 38, 0.5);
 
-  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, system-ui, sans-serif;
-  --mono: ui-monospace, 'SFMono-Regular', Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI Variable', 'Segoe UI', Roboto, system-ui,
+    sans-serif;
+  --mono: ui-monospace, 'SFMono-Regular', 'Cascadia Mono', Consolas, monospace;
 
   color-scheme: light dark;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --bg: #0b1220;
-    --card: #111a2b;
-    --surface: #16213a;
-    --text: #e8eefc;
-    --text-sub: #94a3b8;
-    --border: #24304a;
-    --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.5);
+    --bg: #05080f;
+    --bg-glow: #0d1728;
+    --card: #0b1220;
+    --surface: #111b2c;
+    --surface-strong: #16223a;
+    --text: #e9eff9;
+    --text-sub: #93a2ba;
+    --border: #1c2941;
+    --border-strong: #263751;
+
+    --shadow-card: 0 30px 70px -40px rgba(0, 0, 0, 0.9);
+    --shadow-soft: 0 12px 26px -20px rgba(0, 0, 0, 0.9);
   }
 }
 
@@ -57,11 +70,14 @@ body {
 }
 
 body {
-  background: var(--bg);
+  min-height: 100dvh;
   color: var(--text);
   font-family: var(--sans);
   font-size: 16px;
   line-height: 1.45;
+  background:
+    radial-gradient(1100px 520px at 50% -10%, var(--bg-glow), transparent 70%),
+    var(--bg);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }
@@ -70,7 +86,7 @@ h1,
 h2,
 h3 {
   margin: 0;
-  font-weight: 800;
+  font-weight: 750;
   letter-spacing: -0.02em;
 }
 
@@ -81,6 +97,18 @@ p {
 button {
   font-family: inherit;
   cursor: pointer;
+}
+
+button:focus-visible,
+input:focus-visible,
+summary:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+
+::selection {
+  background: color-mix(in srgb, var(--blue) 24%, transparent);
 }
 
 /* Visibile solo agli screen reader. */

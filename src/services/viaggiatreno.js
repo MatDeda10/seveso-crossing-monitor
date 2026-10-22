@@ -66,23 +66,56 @@ const requestArray = async (url, timeoutMs = RUNTIME.requestTimeoutMs) => {
   }
 };
 
-/** Prova i transport in ordine e restituisce il primo che risponde. */
-const fetchThroughProxies = async (upstreamUrl) => {
+/**
+ * Interroga i transport in parallelo e restituisce il primo che risponde con
+ * un JSON valido.
+ *
+ * La versione precedente li provava in sequenza: se il primo proxy pubblico
+ * era lento, ogni aggiornamento perdeva fino a 8 secondi prima di arrivare a
+ * quello funzionante. Con i ripieghi pubblici (spesso lenti o a rate limit)
+ * questo rendeva l'app inutilizzabile proprio quando serviva.
+ */
+const raceTransports = async (transports, upstreamUrl) => {
   const errors = [];
 
-  for (const transport of TRANSPORT_TEMPLATES) {
+  const attempts = transports.map((transport) =>
+    requestArray(
+      buildTransportUrl(transport.template, upstreamUrl),
+      transport.timeoutMs ?? RUNTIME.requestTimeoutMs,
+    )
+      .then((data) => ({ data, transport: transport.id }))
+      .catch((error) => {
+        errors.push(`${transport.id}: ${error.message}`);
+        throw error;
+      }),
+  );
+
+  if (attempts.length === 0) throw new Error('Nessun transport configurato');
+
+  try {
+    return await Promise.any(attempts);
+  } catch {
+    throw new Error([...new Set(errors)].join(' | ') || 'Nessun transport disponibile');
+  }
+};
+
+/**
+ * Prova il proxy dedicato (se configurato) e, solo se fallisce, i ripieghi
+ * pubblici. Cosi' chi ha un Worker non paga il costo delle chiamate inutili.
+ */
+const fetchThroughProxies = async (upstreamUrl) => {
+  const dedicated = TRANSPORT_TEMPLATES.filter((transport) => !transport.fallbackOnly);
+  const fallbacks = TRANSPORT_TEMPLATES.filter((transport) => transport.fallbackOnly);
+
+  if (dedicated.length > 0) {
     try {
-      const data = await requestArray(
-        buildTransportUrl(transport.template, upstreamUrl),
-        transport.timeoutMs ?? RUNTIME.requestTimeoutMs,
-      );
-      return { data, transport: transport.id };
-    } catch (error) {
-      errors.push(`${transport.id}: ${error.message}`);
+      return await raceTransports(dedicated, upstreamUrl);
+    } catch {
+      /* il proxy dedicato non risponde: si passa ai ripieghi pubblici */
     }
   }
 
-  throw new Error(errors.join(' | ') || 'Nessun transport disponibile');
+  return raceTransports(fallbacks, upstreamUrl);
 };
 
 const readCache = () => {

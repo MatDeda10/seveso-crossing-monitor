@@ -37,16 +37,18 @@ L'app non finge mai di essere aggiornata. In ordine di qualità decrescente usa:
 
 | Origine | Cosa mostra | Come lo dichiara |
 | --- | --- | --- |
-| `network` | Dati live di Viaggiatreno | Indicatore verde, nessun avviso |
-| `cache` | Ultimo dato salvato (< 2,5 min) | Avviso "Dati non aggiornati" + attendibilità ridotta |
-| `timetable` | **Orario teorico** incluso nel sito | Avviso "Orario teorico", attendibilità ridotta |
+| `network` | Dati live di Viaggiatreno | Pallino verde + "Aggiornato Ns fa" |
+| `cache` | Ultimo dato salvato (< 2,5 min) | Pallino giallo + "cache" accanto all'ora |
+| `timetable` | Orario ufficiale incluso nel sito | Pallino giallo + attendibilità ridotta |
 | — | Niente | Tutti i PL in `OFFLINE` (grigio), mai "aperto" |
 
 Il ripiego sull'**orario teorico** (`public/schedule/*.json`, generato da
 `npm run schedule:update`) serve perché GitHub Pages è statico e non può fare da
-proxy: senza un proxy configurato il sito mostrerebbe altrimenti solo `OFFLINE`.
-In quel caso la griglia dei passaggi è quella ufficiale, ma **i ritardi del
-giorno non sono inclusi** — ed è scritto a chiare lettere in cima alla pagina.
+proxy: senza un proxy raggiungibile il sito mostrerebbe altrimenti solo
+`OFFLINE`. In quel caso la griglia dei passaggi è quella ufficiale, ma **i
+ritardi del giorno non sono inclusi**: l'attendibilità scende e lo stato
+generale diventa "chiusure stimate". La scelta è comunicata dal pallino
+giallo/rosso nell'header e dal conteggio, senza banner aggiuntivi.
 
 ## Come funziona
 
@@ -107,11 +109,22 @@ VITE_PROXY_URL=http://localhost:8787/?url={url}
 > dimenticarlo attivo se poi pubblichi la build a mano. Il deploy automatico su
 > GitHub Actions non è toccato (usa il secret del repository).
 
-## Mettere online il proxy (necessario per i dati in tempo reale)
+## Mettere online il proxy (consigliato per i dati in tempo reale)
 
 GitHub Pages serve solo file statici e non può fare da proxy: Viaggiatreno non
-invia header CORS e nessun proxy pubblico gratuito è affidabile. Serve un proxy
-tuo: il Worker in `workers/viaggiatreno-proxy.js` (Cloudflare, piano gratuito).
+invia header CORS, quindi il browser non può leggere le risposte dirette.
+
+L'app però **non richiede configurazione**: interroga in parallelo alcuni proxy
+pubblici gratuiti (`api.allorigins.win`, `api.codetabs.com`, `corsproxy.io`,
+`api.cors.lol`) e usa il primo che risponde con un JSON valido. Se nessuno
+risponde entro 9 secondi passa all'ultimo dato salvato e poi all'orario
+ufficiale. Poiché sono servizi di terze parti possono essere lenti o andare in
+rate limit: per un funzionamento stabile conviene un proxy proprio, sempre
+gratuito, con il Worker in `workers/viaggiatreno-proxy.js` (Cloudflare, piano
+free senza carta di credito).
+
+Con `VITE_PROXY_URL` impostato il Worker diventa l'unico transport interrogato:
+i ripieghi pubblici restano spenti finché risponde.
 
 ### Via A — deploy automatico da GitHub Actions (consigliata)
 

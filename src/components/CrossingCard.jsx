@@ -38,47 +38,50 @@ const CrossingCard = ({ crossing }) => {
   const showUncertaintyBadge = isUncertain && (isClosingNow || status === 'PREALLERTA');
 
   return (
-    <article className={`pl-box ${color}`}>
+    <article className={`crossing-card tone-${color}`}>
       <TrafficLight color={color} />
 
-      <div className="pl-text">
-        <div className="pl-title">
-          <h3>{name}</h3>
+      <div className="cc-content">
+        <div className="cc-head">
+          <div className="cc-titles">
+            <h3>{name}</h3>
+            <p className="cc-locality">
+              {locality} · {reason}
+            </p>
+          </div>
+
+          <span className={`status-pill tone-${color}`}>{status}</span>
+        </div>
+
+        <div className="cc-foot">
+          <div className="cc-badges">
+            {isClosingNow && timerSec !== null && (
+              <span className={`cc-timer tone-${color}`}>riapre tra {formatDuration(timerSec)}</span>
+            )}
+
+            {status === 'PREALLERTA' && timerSec !== null && (
+              <span className={`cc-timer tone-${color}`}>chiude tra {formatDuration(timerSec)}</span>
+            )}
+
+            {!isClosingNow && status !== 'PREALLERTA' && closesInSec !== null && (
+              <span className="cc-timer ghost">prossima tra {formatDuration(closesInSec)}</span>
+            )}
+
+            {windowFrom && windowTo && (
+              <span className="cc-window" title="Intervallo stimato della chiusura">
+                {formatWindow(windowFrom, windowTo)}
+              </span>
+            )}
+
+            {showUncertaintyBadge && <span className="cc-uncertain">percorso da verificare</span>}
+          </div>
+
           <span
             className={`conf-tag ${confidenceClass(confidence)}`}
             title="Affidabilità della stima, non una probabilità"
           >
             {confidence}%
           </span>
-        </div>
-
-        <p className={`pl-status-label color-${color}`}>{status}</p>
-        <p className="pl-area">
-          {locality} · {reason}
-        </p>
-
-        <div className="pl-badges">
-          {isClosingNow && timerSec !== null && (
-            <span className="pl-timer-badge">riapertura tra {formatDuration(timerSec)}</span>
-          )}
-
-          {status === 'PREALLERTA' && timerSec !== null && (
-            <span className="pl-timer-badge">chiusura tra {formatDuration(timerSec)}</span>
-          )}
-
-          {!isClosingNow && status !== 'PREALLERTA' && closesInSec !== null && (
-            <span className="pl-timer-badge ghost">
-              prossima chiusura tra {formatDuration(closesInSec)}
-            </span>
-          )}
-
-          {windowFrom && windowTo && (
-            <span className="pl-window" title="Intervallo stimato della chiusura">
-              {formatWindow(windowFrom, windowTo)}
-            </span>
-          )}
-
-          {showUncertaintyBadge && <span className="pl-warn">percorso non determinato</span>}
         </div>
       </div>
     </article>

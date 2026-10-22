@@ -1,22 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import './App.css';
 import CrossingCard from './components/CrossingCard';
-import Disclaimer from './components/Disclaimer';
 import TrainCard from './components/TrainCard';
-import { RUNTIME, hasConfiguredProxy } from './config/runtime';
+import { RUNTIME } from './config/runtime';
 import { CROSSINGS_CONFIG, SIDE_LABELS, SIDES } from './config/topology';
 import { WINDOWS } from './config/windows';
 import { buildTrains, predictCrossings } from './engine/predictionEngine';
 import { useClock } from './hooks/useClock';
 import { useLogs } from './hooks/useLogs';
 import { useTrainData } from './hooks/useTrainData';
-import { formatClock, formatRelative } from './utils/timeFormat';
+import { formatClock, formatDuration, formatRelative } from './utils/timeFormat';
 
 const TABS = [
   { id: 'viabilita', label: 'Passaggi' },
   { id: 'treni', label: 'Treni' },
   { id: 'log', label: 'Log' },
 ];
+
+const CLOSED_STATUSES = new Set(['CHIUSO', 'IN CHIUSURA']);
+const UNKNOWN_STATUSES = new Set(['INCERTO', 'OFFLINE']);
 
 const readFlag = (key, fallback = false) => {
   try {
@@ -79,7 +81,25 @@ function App() {
     };
   }, [trains, nowMs]);
 
-  const closedCount = crossings.filter((c) => c.status === 'CHIUSO' || c.status === 'IN CHIUSURA').length;
+  /** Conteggi e stato complessivo mostrati nel riepilogo in alto. */
+  const summary = useMemo(() => {
+    const closed = crossings.filter((c) => CLOSED_STATUSES.has(c.status));
+    const alerting = crossings.filter((c) => c.status === 'PREALLERTA');
+    const unknown = crossings.filter((c) => UNKNOWN_STATUSES.has(c.status));
+    const open = crossings.filter((c) => c.status === 'APERTO');
+
+    const nextClosing = crossings
+      .filter((c) => !CLOSED_STATUSES.has(c.status) && c.closesInSec !== null)
+      .sort((a, b) => a.closesInSec - b.closesInSec)[0];
+
+    return {
+      closed: closed.length,
+      alerting: alerting.length,
+      unknown: unknown.length,
+      open: open.length,
+      nextClosing: nextClosing ?? null,
+    };
+  }, [crossings]);
 
   const indicatorClass = useMemo(() => {
     if (!data.fetchedAt || syncAgeMs > WINDOWS.staleHardMs) return 'offline';
@@ -88,40 +108,71 @@ function App() {
     return 'live';
   }, [data.fetchedAt, data.dataState, syncAgeMs]);
 
+  /** Primo caricamento: nessun dato e nessun errore ancora registrato. */
+  const isInitialLoading = !data.fetchedAt && data.dataState === 'offline' && !data.error;
+
   /**
-   * Un solo punto per spiegare all'utente DA DOVE vengono i dati quando non
-   * sono in tempo reale: un monitor che mostra numeri senza dire che sono
-   * teorici e' peggio di un monitor che si dichiara degradato.
+   * Stato complessivo a colpo d'occhio. Il dettaglio per singolo PL resta
+   * sotto; qui serve solo a rispondere a "posso passare?".
    */
-  const dataNotice = useMemo(() => {
-    if (data.dataState === 'timetable') {
+  const overall = useMemo(() => {
+    if (isInitialLoading) {
+      return { tone: 'muted', label: 'Caricamento dati…', hint: 'Connessione ai sistemi ferroviari' };
+    }
+
+    if (indicatorClass === 'offline' || summary.unknown > 0) {
+      return { tone: 'muted', label: 'Dati non disponibili', hint: 'Rete non raggiungibile' };
+    }
+
+    if (summary.closed > 0) {
+      const allEstimated = crossings.filter((c) => CLOSED_STATUSES.has(c.status)).every((c) => c.isUncertain);
+
+      if (allEstimated) {
+        return {
+          tone: 'warning',
+          label: summary.closed === 1 ? '1 chiusura stimata' : `${summary.closed} chiusure stimate`,
+          hint: 'Percorso del treno da verificare: prudenzialmente chiuse',
+        };
+      }
+
       return {
-        level: 'warn',
-        title: 'Orario teorico',
-        text: 'Dati in tempo reale non raggiungibili: le chiusure sono stimate dall’orario ufficiale e non includono i ritardi del giorno. Attendibilità ridotta.',
+        tone: 'danger',
+        label: summary.closed === 1 ? '1 chiusura in corso' : `${summary.closed} chiusure in corso`,
+        hint: summary.nextClosing
+          ? `Prossima chiusura tra ${formatDuration(summary.nextClosing.closesInSec)}`
+          : 'Attendi la riapertura',
       };
     }
 
-    if (data.dataState === 'cached') {
+    if (summary.alerting > 0) {
       return {
-        level: 'warn',
-        title: 'Dati non aggiornati',
-        text: `Ultimo contatto riuscito ${formatRelative(data.fetchedAt, nowMs)}. Le stime si basano su quei dati.`,
+        tone: 'warning',
+        label: summary.alerting === 1 ? 'Treno in avvicinamento' : 'Treni in avvicinamento',
+        hint: 'Chiusura imminente',
       };
     }
+
+    return {
+      tone: 'ok',
+      label: 'Tutti aperti',
+      hint: summary.nextClosing
+        ? `Prossima chiusura tra ${formatDuration(summary.nextClosing.closesInSec)} · ${summary.nextClosing.name}`
+        : 'Nessun transito previsto',
+    };
+  }, [indicatorClass, summary, isInitialLoading, crossings]);
+
+  const dataNotice = useMemo(() => {
+    if (isInitialLoading) return null;
 
     if (data.dataState === 'offline') {
       return {
         level: 'error',
         title: 'Dati non disponibili',
-        text: hasConfiguredProxy
-          ? 'Il proxy configurato non risponde e non c’è un dato salvato utilizzabile. Dettagli nella scheda Log.'
-          : 'Nessun proxy configurato e nessun ripiego pubblico utilizzabile. Pubblica il Worker (istruzioni nel README) e imposta VITE_PROXY_URL.',
+        text: 'Nessun proxy raggiungibile e nessun dato salvato utilizzabile. Dettagli nella scheda Log.',
       };
     }
-
     return null;
-  }, [data.dataState, data.fetchedAt, nowMs]);
+  }, [data.dataState, isInitialLoading]);
 
   const exportLogs = useCallback(() => {
     const payload = {
@@ -154,27 +205,63 @@ function App() {
   return (
     <div className="app-shell">
       <div className="app-card">
-        <header className="main-header">
-          <div className="status-bar">
-            <span className={`indicator ${indicatorClass}`} aria-hidden="true" />
-            <span className="station-label">
-              {RUNTIME.stationName.toUpperCase()} · {formatClock(nowMs)}
-            </span>
-            <button type="button" className="refresh-button" onClick={refresh}>
-              Aggiorna
-            </button>
+        <header className="app-header">
+          <div className="header-row">
+            <div className="brand">
+              <span className={`live-dot ${indicatorClass}`} aria-hidden="true" />
+              <div className="brand-text">
+                <span className="brand-name">{RUNTIME.stationName}</span>
+                <span className="brand-meta">Passaggi a livello</span>
+              </div>
+            </div>
+
+            <div className="header-actions">
+              <span className="clock">{formatClock(nowMs)}</span>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={refresh}
+                aria-label="Aggiorna i dati"
+                title="Aggiorna i dati"
+              >
+                <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" focusable="false">
+                  <path
+                    fill="currentColor"
+                    d="M12 5V2L7 6l5 4V7a5 5 0 1 1-5 5H5a7 7 0 1 0 7-7Z"
+                  />
+                </svg>
+              </button>
+            </div>
           </div>
 
-          <h1>Seveso PL Monitor</h1>
-          <p className="sub-header">
-            {data.source === 'timetable'
-              ? 'Orario teorico · nessun dato in tempo reale'
-              : `Ultimo aggiornamento ${formatRelative(data.fetchedAt, nowMs)}`}
-            {data.source === 'cache' ? ' (dati in cache)' : ''}
-            {data.transport ? ` · via ${data.transport}` : ''}
-          </p>
+          <section className={`hero ${overall.tone}`} aria-live="polite">
+            <div className="hero-main">
+              <span className="hero-label">{overall.label}</span>
+              <span className="hero-hint">{overall.hint}</span>
+            </div>
 
-          <Disclaimer />
+            <div className="hero-stats">
+              <div className="hero-stat">
+                <span className="hero-stat-value">{summary.closed}</span>
+                <span className="hero-stat-label">chiusi</span>
+              </div>
+              <div className="hero-stat">
+                <span className="hero-stat-value">{summary.alerting}</span>
+                <span className="hero-stat-label">in arrivo</span>
+              </div>
+              <div className="hero-stat">
+                <span className="hero-stat-value">{summary.open}</span>
+                <span className="hero-stat-label">aperti</span>
+              </div>
+            </div>
+          </section>
+
+          <p className="sync-line">
+            <span className={`sync-dot ${indicatorClass}`} aria-hidden="true" />
+            {data.fetchedAt ? `Aggiornato ${formatRelative(data.fetchedAt, nowMs)}` : 'In attesa del primo dato'}
+            {data.transport ? ` · ${data.transport}` : ''}
+            {data.source === 'cache' ? ' · cache' : ''}
+          </p>
         </header>
 
         <nav className="tab-bar" role="tablist" aria-label="Sezioni">
@@ -202,24 +289,31 @@ function App() {
         )}
 
         <p className="sr-only" aria-live="polite">
-          {closedCount} passaggi a livello chiusi o in chiusura su {crossings.length}.
+          {summary.closed} passaggi a livello chiusi o in chiusura su {crossings.length}.
         </p>
 
         <main className="view-container">
           {activeTab === 'viabilita' && (
             <div className="view-content" role="tabpanel" id="panel-viabilita" aria-labelledby="tab-viabilita">
-              {groupedCrossings.map(([side, list]) => (
-                <section key={side} className="side-group">
-                  <div className="station-divider">
-                    <div className="divider-line" />
-                    <div className="divider-label">{SIDE_LABELS[side].toUpperCase()}</div>
-                    <div className="divider-line" />
-                  </div>
-                  {list.map((crossing) => (
-                    <CrossingCard key={crossing.id} crossing={crossing} />
-                  ))}
-                </section>
-              ))}
+              {isInitialLoading ? (
+                <div className="skeleton-list" aria-hidden="true">
+                  <div className="skeleton-card" />
+                  <div className="skeleton-card" />
+                  <div className="skeleton-card" />
+                </div>
+              ) : (
+                groupedCrossings.map(([side, list]) => (
+                  <section key={side} className="side-group">
+                    <div className="section-label">
+                      <span>{SIDE_LABELS[side]}</span>
+                      <span className="section-count">{list.length}</span>
+                    </div>
+                    {list.map((crossing) => (
+                      <CrossingCard key={crossing.id} crossing={crossing} />
+                    ))}
+                  </section>
+                ))
+              )}
             </div>
           )}
 
@@ -250,10 +344,9 @@ function App() {
 
               {showPassed && passed.length > 0 && (
                 <>
-                  <div className="station-divider">
-                    <div className="divider-line" />
-                    <div className="divider-label">TRANSITATI ({passed.length})</div>
-                    <div className="divider-line" />
+                  <div className="section-label">
+                    <span>Transitati</span>
+                    <span className="section-count">{passed.length}</span>
                   </div>
                   {passed.map((train) => (
                     <TrainCard key={`passed-${train.id}`} train={train} nowMs={nowMs} />
@@ -295,7 +388,7 @@ function App() {
                   <dd>{stats.unique}</dd>
                 </div>
                 <div>
-                  <dt>Record duplicati fra arrivi e partenze</dt>
+                  <dt>Duplicati arrivi/partenze</dt>
                   <dd>{stats.duplicatedRecords}</dd>
                 </div>
                 <div>
@@ -322,6 +415,11 @@ function App() {
             </div>
           )}
         </main>
+
+        <footer className="app-footer">
+          Stima non ufficiale, non è un dispositivo di sicurezza: rispetta sempre barriere e
+          segnaletica.
+        </footer>
       </div>
     </div>
   );
